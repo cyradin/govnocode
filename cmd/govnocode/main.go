@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"fmt"
 	"log"
 	"os/signal"
 	"syscall"
@@ -27,12 +26,7 @@ func main() {
 	}
 }
 
-func run(cfg *config.Config, container *container.Container) error {
-	cfg, err := config.New()
-	if err != nil {
-		return fmt.Errorf("config error: %w", err)
-	}
-
+func run(_ *config.Config, container *container.Container) error {
 	ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer cancel()
 
