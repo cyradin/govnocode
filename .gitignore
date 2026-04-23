@@ -1,0 +1,13 @@
+.idea
+.vscode
+
+/docker-compose.override.yml
+
+/dist/
+/vendor/
+
+__debug_bin*
+
+/tmp/
+
+.env
