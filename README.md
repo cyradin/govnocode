@@ -34,6 +34,10 @@ To enable running integration tests from VS Code, add to `.vscode/settings.json`
 
 ```json
 {
-  "go.testTags": "integration"
+  "go.testTags": "integration",
+  "go.buildTags": "integration",
+  "gopls": {
+    "buildFlags": ["-tags=integration"]
+  }
 }
 ```

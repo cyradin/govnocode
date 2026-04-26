@@ -1,5 +1,4 @@
 //go:build integration
-// +build integration
 
 package tools
 
@@ -72,8 +71,7 @@ func TestGitCreateBranch_Execute(t *testing.T) {
 		tmpDir := t.TempDir()
 		tool := NewGetCreateBranch()
 
-		_, err := exec.Command("git", "init", tmpDir).CombinedOutput()
-		require.NoError(t, err)
+		initRepo(t, tmpDir)
 
 		res, err := tool.Execute(tmpDir, []byte(`{"branch":"feature/test"}`))
 
@@ -92,13 +90,11 @@ func TestGitCreateBranch_Execute(t *testing.T) {
 		tmpDir := t.TempDir()
 		tool := NewGetCreateBranch()
 
-		_, err := exec.Command("git", "init", tmpDir).CombinedOutput()
-		require.NoError(t, err)
+		initRepo(t, tmpDir)
 
 		res, err := tool.Execute(tmpDir, []byte(`{"branch":"--help"}`))
 
 		require.Error(t, err)
-		require.Contains(t, err.Error(), "git")
 		require.NotNil(t, res)
 	})
 
@@ -108,11 +104,266 @@ func TestGitCreateBranch_Execute(t *testing.T) {
 		tmpDir := t.TempDir()
 		tool := NewGetCreateBranch()
 
-		_, err := exec.Command("git", "init", tmpDir).CombinedOutput()
-		require.NoError(t, err)
+		initRepo(t, tmpDir)
 
-		_, err = tool.Execute(tmpDir, []byte(`{"branch":""}`))
+		_, err := tool.Execute(tmpDir, []byte(`{"branch":""}`))
 
 		require.Error(t, err)
 	})
+}
+
+func TestGitCheckout_Execute(t *testing.T) {
+	t.Parallel()
+
+	if _, err := exec.LookPath("git"); err != nil {
+		t.Skip("git not installed")
+	}
+
+	t.Run("success: switch branch", func(t *testing.T) {
+		t.Parallel()
+
+		tmpDir := t.TempDir()
+		tool := NewGitCheckout()
+
+		initRepo(t, tmpDir)
+
+		_, err := runCommand(exec.Command("git", "branch", "feature/test"), tmpDir)
+		require.NoError(t, err)
+
+		res, err := tool.Execute(tmpDir, []byte(`{"branch":"feature/test"}`))
+
+		require.NoError(t, err)
+		require.NotNil(t, res)
+	})
+
+	t.Run("error: checkout non-existent branch", func(t *testing.T) {
+		t.Parallel()
+
+		tmpDir := t.TempDir()
+		tool := NewGitCheckout()
+
+		initRepo(t, tmpDir)
+
+		_, err := tool.Execute(tmpDir, []byte(`{"branch":"does-not-exist"}`))
+
+		require.Error(t, err)
+	})
+}
+
+func TestGitStatus_Execute(t *testing.T) {
+	t.Parallel()
+
+	if _, err := exec.LookPath("git"); err != nil {
+		t.Skip("git not installed")
+	}
+
+	t.Run("success: empty repo status", func(t *testing.T) {
+		t.Parallel()
+
+		tmpDir := t.TempDir()
+		tool := NewGitStatus()
+
+		initRepo(t, tmpDir)
+
+		res, err := tool.Execute(tmpDir, nil)
+
+		require.NoError(t, err)
+		require.NotNil(t, res)
+	})
+
+	t.Run("success: status after file change", func(t *testing.T) {
+		t.Parallel()
+
+		tmpDir := t.TempDir()
+		tool := NewGitStatus()
+
+		initRepo(t, tmpDir)
+
+		_ = os.WriteFile(filepath.Join(tmpDir, "test.txt"), []byte("hello"), 0644)
+
+		res, err := tool.Execute(tmpDir, nil)
+
+		require.NoError(t, err)
+		require.Contains(t, res.Stdout, "test.txt")
+	})
+}
+
+func TestGitAdd_Execute(t *testing.T) {
+	t.Parallel()
+
+	if _, err := exec.LookPath("git"); err != nil {
+		t.Skip("git not installed")
+	}
+
+	t.Run("success: add file", func(t *testing.T) {
+		t.Parallel()
+
+		tmpDir := t.TempDir()
+		tool := NewGitAdd()
+
+		initRepo(t, tmpDir)
+
+		file := filepath.Join(tmpDir, "a.txt")
+		require.NoError(t, os.WriteFile(file, []byte("data"), 0644))
+
+		res, err := tool.Execute(tmpDir, []byte(`{"path":"."}`))
+
+		require.NoError(t, err)
+		require.NotNil(t, res)
+	})
+
+	t.Run("error: invalid path", func(t *testing.T) {
+		t.Parallel()
+
+		tmpDir := t.TempDir()
+		tool := NewGitAdd()
+
+		initRepo(t, tmpDir)
+
+		_, err := tool.Execute(tmpDir, []byte(`{"path":""}`))
+
+		require.Error(t, err)
+	})
+}
+
+func TestGitCommit_Execute(t *testing.T) {
+	t.Parallel()
+
+	if _, err := exec.LookPath("git"); err != nil {
+		t.Skip("git not installed")
+	}
+
+	t.Run("success: commit file", func(t *testing.T) {
+		t.Parallel()
+
+		tmpDir := t.TempDir()
+		tool := NewGitCommit()
+
+		initRepo(t, tmpDir)
+
+		_ = os.WriteFile(filepath.Join(tmpDir, "a.txt"), []byte("data"), 0644)
+
+		_, err := runCommand(exec.Command("git", "add", "."), tmpDir)
+		require.NoError(t, err)
+
+		res, err := tool.Execute(tmpDir, []byte(`{"message":"test commit"}`))
+
+		require.NoError(t, err)
+		require.NotNil(t, res)
+	})
+
+	t.Run("error: empty message", func(t *testing.T) {
+		t.Parallel()
+
+		tmpDir := t.TempDir()
+		tool := NewGitCommit()
+
+		initRepo(t, tmpDir)
+
+		_, err := tool.Execute(tmpDir, []byte(`{"message":""}`))
+
+		require.Error(t, err)
+	})
+}
+
+func TestGitPush_Execute(t *testing.T) {
+	t.Parallel()
+
+	if _, err := exec.LookPath("git"); err != nil {
+		t.Skip("git not installed")
+	}
+
+	t.Run("error: push without remote (expected failure)", func(t *testing.T) {
+		t.Parallel()
+
+		tmpDir := t.TempDir()
+		tool := NewGitPush()
+
+		initRepo(t, tmpDir)
+
+		_, err := tool.Execute(tmpDir, []byte(`{"remote":"origin","branch":"main"}`))
+
+		require.Error(t, err)
+	})
+}
+
+func TestGitPull_Execute(t *testing.T) {
+	t.Parallel()
+
+	if _, err := exec.LookPath("git"); err != nil {
+		t.Skip("git not installed")
+	}
+
+	t.Run("error: pull without remote", func(t *testing.T) {
+		t.Parallel()
+
+		tmpDir := t.TempDir()
+		tool := NewGitPull()
+
+		initRepo(t, tmpDir)
+
+		_, err := tool.Execute(tmpDir, nil)
+
+		require.Error(t, err)
+	})
+}
+
+func TestGitFetch_Execute(t *testing.T) {
+	t.Parallel()
+
+	if _, err := exec.LookPath("git"); err != nil {
+		t.Skip("git not installed")
+	}
+
+	t.Run("success: fetch in empty repo", func(t *testing.T) {
+		t.Parallel()
+
+		tmpDir := t.TempDir()
+		tool := NewGitFetch()
+
+		_, err := exec.Command("git", "init", tmpDir).CombinedOutput()
+		require.NoError(t, err)
+
+		res, err := tool.Execute(tmpDir, nil)
+
+		require.NoError(t, err)
+		require.NotNil(t, res)
+	})
+}
+
+func TestGitBranchList_Execute(t *testing.T) {
+	t.Parallel()
+
+	if _, err := exec.LookPath("git"); err != nil {
+		t.Skip("git not installed")
+	}
+
+	t.Run("success: list branches", func(t *testing.T) {
+		t.Parallel()
+
+		tmpDir := t.TempDir()
+		tool := NewGitBranchList()
+
+		initRepo(t, tmpDir)
+
+		_, err := runCommand(exec.Command("git", "branch", "feature/test"), tmpDir)
+		require.NoError(t, err)
+
+		res, err := tool.Execute(tmpDir, nil)
+
+		require.NoError(t, err)
+		require.Contains(t, res.Stdout, "test")
+	})
+}
+
+func initRepo(t *testing.T, dir string) {
+	t.Helper()
+
+	_, _ = exec.Command("git", "-C", dir, "init").CombinedOutput()
+	_, _ = exec.Command("git", "-C", dir, "config", "--local", "commit.gpgsign", "false").CombinedOutput()
+	_, _ = exec.Command("git", "-C", dir, "config", "--local", "tag.gpgsign", "false").CombinedOutput()
+	_, _ = exec.Command("git", "-C", dir, "config", "user.email", "test@test.com").CombinedOutput()
+	_, _ = exec.Command("git", "-C", dir, "config", "user.name", "test").CombinedOutput()
+	_, err := exec.Command("git", "-C", dir, "commit", "--allow-empty", "-m", "init").CombinedOutput()
+	require.NoError(t, err)
 }

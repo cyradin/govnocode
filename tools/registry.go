@@ -62,7 +62,7 @@ func (r *Registry) Register(tool Tool) error {
 	return nil
 }
 
-func runCommand(cmd *exec.Cmd) (Result, error) {
+func runCommand(cmd *exec.Cmd, dir string) (Result, error) {
 	var (
 		stdout bytes.Buffer
 		stderr bytes.Buffer
@@ -70,6 +70,7 @@ func runCommand(cmd *exec.Cmd) (Result, error) {
 
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr
+	cmd.Dir = dir
 
 	err := cmd.Run()
 	result := Result{

@@ -106,7 +106,7 @@ func TestRunCommand(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			res, err := runCommand(tt.cmd)
+			res, err := runCommand(tt.cmd, "")
 
 			require.Equal(t, tt.want.Stdout, res.Stdout)
 			require.Equal(t, tt.want.StdErr, res.StdErr)
