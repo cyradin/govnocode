@@ -2,8 +2,11 @@ package tools
 
 import (
 	"bytes"
+	"encoding/json"
 	"fmt"
 	"os/exec"
+
+	"github.com/go-playground/validator/v10"
 )
 
 var (
@@ -17,8 +20,15 @@ type Result struct {
 	StdErr string
 }
 
+type Spec struct {
+	Code        string `json:"code"`
+	Description string `json:"description"`
+	Args        any    `json:"args,omitempty"`
+}
+
 type Tool interface {
 	Code() string
+	Spec() Spec
 	Execute(dir string, args []byte) (Result, error)
 }
 
@@ -72,4 +82,20 @@ func runCommand(cmd *exec.Cmd) (Result, error) {
 	}
 
 	return result, nil
+}
+
+var validate = validator.New()
+
+func parseArgs[T any](raw []byte) (T, error) {
+	var a T
+
+	if err := json.Unmarshal(raw, &a); err != nil {
+		return a, fmt.Errorf("invalid args json: %w", err)
+	}
+
+	if err := validate.Struct(a); err != nil {
+		return a, fmt.Errorf("validate args: %w", err)
+	}
+
+	return a, nil
 }

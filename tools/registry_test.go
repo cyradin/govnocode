@@ -123,6 +123,10 @@ func (m mockTool) Code() string {
 	return m.code
 }
 
+func (m mockTool) Spec() Spec {
+	return Spec{}
+}
+
 func (m mockTool) Execute(string, []byte) (Result, error) {
 	return Result{}, nil
 }

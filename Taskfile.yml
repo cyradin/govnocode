@@ -22,6 +22,15 @@ tasks:
     cmds:
       - go test ./... --race
 
+  test:integration:
+    cmds:
+      - go test ./... --race -tags=integration
+
+  test:all:
+    cmds:
+      - task: test
+      - task: test:integration
+
   lint:
     cmds:
       - go run github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.11.4 run
