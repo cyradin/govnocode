@@ -69,7 +69,7 @@ func TestGitCreateBranch_Execute(t *testing.T) {
 		t.Parallel()
 
 		tmpDir := t.TempDir()
-		tool := NewGetCreateBranch()
+		tool := NewGitCreateBranch()
 
 		initRepo(t, tmpDir)
 
@@ -88,7 +88,7 @@ func TestGitCreateBranch_Execute(t *testing.T) {
 		t.Parallel()
 
 		tmpDir := t.TempDir()
-		tool := NewGetCreateBranch()
+		tool := NewGitCreateBranch()
 
 		initRepo(t, tmpDir)
 
@@ -102,7 +102,7 @@ func TestGitCreateBranch_Execute(t *testing.T) {
 		t.Parallel()
 
 		tmpDir := t.TempDir()
-		tool := NewGetCreateBranch()
+		tool := NewGitCreateBranch()
 
 		initRepo(t, tmpDir)
 

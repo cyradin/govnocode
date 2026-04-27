@@ -153,14 +153,14 @@ func TestMkdir_Execute(t *testing.T) {
 	})
 }
 
-func TestMove_Execute(t *testing.T) {
+func TestFileMove_Execute(t *testing.T) {
 	t.Parallel()
 
 	t.Run("success: move file", func(t *testing.T) {
 		t.Parallel()
 
 		tmpDir := t.TempDir()
-		tool := NewMove()
+		tool := NewFileMove()
 
 		old := filepath.Join(tmpDir, "a.txt")
 		new := filepath.Join(tmpDir, "b.txt")
@@ -180,7 +180,7 @@ func TestMove_Execute(t *testing.T) {
 		t.Parallel()
 
 		tmpDir := t.TempDir()
-		tool := NewMove()
+		tool := NewFileMove()
 
 		_, err := tool.Execute(tmpDir, []byte(`{"from":"a.txt","to":"b.txt"}`))
 

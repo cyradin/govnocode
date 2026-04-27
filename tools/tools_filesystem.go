@@ -234,17 +234,17 @@ type MoveArgs struct {
 	To   string `json:"to" validate:"required"`
 }
 
-type Move struct{}
+type FileMove struct{}
 
-func NewMove() *Move {
-	return &Move{}
+func NewFileMove() *FileMove {
+	return &FileMove{}
 }
 
-func (m *Move) Code() string {
+func (m *FileMove) Code() string {
 	return "file.move"
 }
 
-func (m *Move) Spec() Spec {
+func (m *FileMove) Spec() Spec {
 	return Spec{
 		Code:        m.Code(),
 		Description: "Move or rename file/directory",
@@ -255,7 +255,7 @@ func (m *Move) Spec() Spec {
 	}
 }
 
-func (m *Move) Execute(dir string, raw []byte) (Result, error) {
+func (m *FileMove) Execute(dir string, raw []byte) (Result, error) {
 	a, err := parseArgs[MoveArgs](raw)
 	if err != nil {
 		return Result{}, fmt.Errorf("parse args: %w", err)

@@ -46,7 +46,7 @@ type GitCreateBranch struct {
 	args    []string
 }
 
-func NewGetCreateBranch() *GitCreateBranch {
+func NewGitCreateBranch() *GitCreateBranch {
 	return &GitCreateBranch{
 		command: gitCommand,
 		args:    []string{"checkout", "-b"},
