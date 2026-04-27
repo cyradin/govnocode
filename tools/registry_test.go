@@ -18,6 +18,17 @@ func TestRegistry_Register(t *testing.T) {
 		require.NoError(t, err)
 	})
 
+	t.Run("success, miltiple tools", func(t *testing.T) {
+		t.Parallel()
+
+		r := NewRegistry()
+		err := r.Register(
+			mockTool{code: "code1"},
+			mockTool{code: "code2"},
+		)
+		require.NoError(t, err)
+	})
+
 	t.Run("duplicate error", func(t *testing.T) {
 		t.Parallel()
 

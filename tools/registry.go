@@ -51,13 +51,15 @@ func (r *Registry) Get(code string) (Tool, error) {
 	return tool, nil
 }
 
-func (r *Registry) Register(tool Tool) error {
-	_, ok := r.tools[tool.Code()]
-	if ok {
-		return fmt.Errorf("%w: %s", ErrAlreadyRegistered, tool.Code())
-	}
+func (r *Registry) Register(tools ...Tool) error {
+	for _, tool := range tools {
+		_, ok := r.tools[tool.Code()]
+		if ok {
+			return fmt.Errorf("%w: %s", ErrAlreadyRegistered, tool.Code())
+		}
 
-	r.tools[tool.Code()] = tool
+		r.tools[tool.Code()] = tool
+	}
 
 	return nil
 }
