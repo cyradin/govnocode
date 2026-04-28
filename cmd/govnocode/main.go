@@ -39,7 +39,7 @@ func run(_ *config.Config, container *container.Container) error {
 	go func() {
 		logger.FromContext(ctx).Info("app started")
 
-		errCh <- agent.Start(ctx)
+		errCh <- agent.Start(ctx, "The task is to implement simple Go HTTP server with a few endpoints")
 	}()
 
 	select {
