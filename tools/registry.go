@@ -51,6 +51,16 @@ func (r *Registry) Get(code string) (Tool, error) {
 	return tool, nil
 }
 
+func (r *Registry) All() []Tool {
+	result := make([]Tool, 0, len(r.tools))
+
+	for _, tool := range r.tools {
+		result = append(result, tool)
+	}
+
+	return result
+}
+
 func (r *Registry) Register(tools ...Tool) error {
 	for _, tool := range tools {
 		_, ok := r.tools[tool.Code()]

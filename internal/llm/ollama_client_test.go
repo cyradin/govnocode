@@ -81,13 +81,13 @@ func TestOllamaClient_Generate(t *testing.T) {
 			server := httptest.NewServer(tt.serverHandler)
 			defer server.Close()
 
-			client := NewOllamaClient(server.URL, server.Client())
+			client := NewOllamaClient(server.URL, "test-model", server.Client())
 
-			messages := []OllamaChatMessage{
+			messages := []ChatMessage{
 				{Role: "user", Content: "hello"},
 			}
 
-			out, err := client.Generate("test-model", messages)
+			out, err := client.Generate(messages)
 
 			if tt.wantErr {
 				require.Error(t, err)
@@ -109,13 +109,13 @@ func TestOllamaClient_Generate_PostError(t *testing.T) {
 		}),
 	}
 
-	client := NewOllamaClient("http://localhost:1234", brokenClient)
+	client := NewOllamaClient("http://localhost:1234", "test-model", brokenClient)
 
-	messages := []OllamaChatMessage{
+	messages := []ChatMessage{
 		{Role: "user", Content: "p"},
 	}
 
-	out, err := client.Generate("m", messages)
+	out, err := client.Generate(messages)
 
 	require.Error(t, err)
 	require.Empty(t, out)

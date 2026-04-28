@@ -30,10 +30,17 @@ func run(_ *config.Config, container *container.Container) error {
 	ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer cancel()
 
+	ctx = logger.WithContext(ctx, container.Logger())
+
 	errCh := make(chan error, 1)
 
-	// @todo
-	container.Logger().Info("app started")
+	agent := container.Agent()
+
+	go func() {
+		logger.FromContext(ctx).Info("app started")
+
+		errCh <- agent.Start(ctx)
+	}()
 
 	select {
 	case <-ctx.Done():

@@ -2,6 +2,7 @@ package config
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/kelseyhightower/envconfig"
 )
@@ -18,8 +19,9 @@ type LogConfig struct {
 
 type LLMConfig struct {
 	Ollama struct {
-		BaseURL string `envconfig:"GOVNOCODE_OLLAMA_BASE_URL" required:"true" default:"localhost:11434"`
-		Modell  string `envconfig:"GOVNOCODE_OLLAMA_MODEL" required:"true"`
+		BaseURL     string        `envconfig:"GOVNOCODE_OLLAMA_BASE_URL" required:"true" default:"localhost:11434"`
+		Model       string        `envconfig:"GOVNOCODE_OLLAMA_MODEL" required:"true"`
+		HTTPTimeout time.Duration `envconfig:"GOVNOCODE_OLLAMA_HTTP_TIMEOUT" required:"true" default:"60s"`
 	}
 }
 

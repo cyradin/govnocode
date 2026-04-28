@@ -16,7 +16,6 @@ func (c *Container) ToolRegistry() *tools.Registry {
 			tools.NewGitPush(),
 			tools.NewGitPull(),
 			tools.NewGitFetch(),
-			tools.NewGitFetch(),
 			tools.NewGitBranchList(),
 
 			tools.NewFileRead(),

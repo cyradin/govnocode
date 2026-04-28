@@ -8,35 +8,33 @@ import (
 	"strings"
 )
 
-type OllamaChatMessage struct {
-	Role    string `json:"role"`
-	Content string `json:"content"`
-}
-
 type OllamaChatRequest struct {
-	Model    string              `json:"model"`
-	Messages []OllamaChatMessage `json:"messages"`
-	Stream   bool                `json:"stream"`
+	Model    string        `json:"model"`
+	Messages []ChatMessage `json:"messages"`
+	Stream   bool          `json:"stream"`
 }
 
 type OllamaChatResponse struct {
-	Message OllamaChatMessage `json:"message"`
+	Message ChatMessage `json:"message"`
 }
 
 type OllamaClient struct {
 	baseURL string
+	model   string
 	inner   *http.Client
 }
 
-func NewOllamaClient(baseURL string, inner *http.Client) *OllamaClient {
+func NewOllamaClient(baseURL string, model string, inner *http.Client) *OllamaClient {
 	return &OllamaClient{
 		baseURL: baseURL,
+		model:   model,
 		inner:   inner,
 	}
 }
-func (c *OllamaClient) Generate(model string, messages []OllamaChatMessage) (string, error) {
+
+func (c *OllamaClient) Generate(messages []ChatMessage) (string, error) {
 	reqBody := OllamaChatRequest{
-		Model:    model,
+		Model:    c.model,
 		Stream:   false,
 		Messages: messages,
 	}
