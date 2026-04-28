@@ -73,10 +73,11 @@ func (g *GitCreateBranch) Execute(dir string, args []byte) (Result, error) {
 		return Result{}, fmt.Errorf("parse args: %w", err)
 	}
 
+	//nolint:gosec
 	cmd := exec.Command(
 		g.command,
 		append(g.args, parsedArgs.Branch)...,
-	) //nolint:gosec
+	)
 
 	return runCommand(cmd, dir)
 }
@@ -117,6 +118,7 @@ func (g *GitCheckout) Execute(dir string, raw []byte) (Result, error) {
 		return Result{}, fmt.Errorf("parse args: %w", err)
 	}
 
+	//nolint:gosec
 	cmd := exec.Command(g.command, append(g.args, a.Branch)...)
 
 	return runCommand(cmd, dir)
@@ -176,6 +178,7 @@ func (g *GitAdd) Execute(dir string, raw []byte) (Result, error) {
 		return Result{}, fmt.Errorf("parse args: %w", err)
 	}
 
+	//nolint:gosec
 	cmd := exec.Command("git", "add", a.Path)
 
 	return runCommand(cmd, dir)
@@ -211,6 +214,7 @@ func (g *GitCommit) Execute(dir string, raw []byte) (Result, error) {
 		return Result{}, fmt.Errorf("parse args: %w", err)
 	}
 
+	//nolint:gosec
 	cmd := exec.Command("git", "commit", "-m", a.Message)
 
 	return runCommand(cmd, dir)
@@ -248,6 +252,7 @@ func (g *GitPush) Execute(dir string, raw []byte) (Result, error) {
 		return Result{}, fmt.Errorf("parse args: %w", err)
 	}
 
+	//nolint:gosec
 	cmd := exec.Command("git", "push", "-u", a.Remote, a.Branch)
 
 	return runCommand(cmd, dir)

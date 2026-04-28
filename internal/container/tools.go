@@ -6,7 +6,7 @@ func (c *Container) ToolRegistry() *tools.Registry {
 	if c.toolRegistry == nil {
 		registry := tools.NewRegistry()
 
-		registry.Register(
+		err := registry.Register(
 			tools.NewGitInit(),
 			tools.NewGitCreateBranch(),
 			tools.NewGitCheckout(),
@@ -26,6 +26,11 @@ func (c *Container) ToolRegistry() *tools.Registry {
 			tools.NewMkdir(),
 			tools.NewFileMove(),
 		)
+		if err != nil {
+			panic(err)
+		}
+
+		c.toolRegistry = registry
 	}
 
 	return c.toolRegistry

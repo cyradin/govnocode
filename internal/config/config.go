@@ -8,10 +8,19 @@ import (
 
 type Config struct {
 	Log LogConfig
+
+	LLM LLMConfig
 }
 
 type LogConfig struct {
-	Level string `envconfig:"FIXIK_LOG_LEVEL" required:"true" default:"info"`
+	Level string `envconfig:"GOVNOCODE_LOG_LEVEL" required:"true" default:"info"`
+}
+
+type LLMConfig struct {
+	Ollama struct {
+		BaseURL string `envconfig:"GOVNOCODE_OLLAMA_BASE_URL" required:"true" default:"localhost:11434"`
+		Modell  string `envconfig:"GOVNOCODE_OLLAMA_MODEL" required:"true"`
+	}
 }
 
 func New() (*Config, error) {

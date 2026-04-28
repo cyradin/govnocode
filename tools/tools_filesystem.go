@@ -42,6 +42,7 @@ func (f *FileRead) Execute(dir string, raw []byte) (Result, error) {
 		return Result{}, fmt.Errorf("path join: %w", err)
 	}
 
+	// #nosec G304
 	b, err := os.ReadFile(joinedPath)
 	if err != nil {
 		return Result{}, fmt.Errorf("read file: %w", err)
@@ -87,7 +88,7 @@ func (f *FileWrite) Execute(dir string, raw []byte) (Result, error) {
 		return Result{}, fmt.Errorf("path join: %w", err)
 	}
 
-	err = os.WriteFile(joinedPath, []byte(a.Content), 0644)
+	err = os.WriteFile(joinedPath, []byte(a.Content), 0600) //nolint:mnd
 	if err != nil {
 		return Result{}, fmt.Errorf("write file: %w", err)
 	}
@@ -178,12 +179,14 @@ func (d *DirList) Execute(dir string, raw []byte) (Result, error) {
 		return Result{}, fmt.Errorf("read dir: %w", err)
 	}
 
-	var out string
+	var b strings.Builder
+
 	for _, e := range entries {
-		out += e.Name() + "\n"
+		b.WriteString(e.Name())
+		b.WriteByte('\n')
 	}
 
-	return Result{Stdout: out}, nil
+	return Result{Stdout: b.String()}, nil
 }
 
 type MkdirArgs struct {
@@ -221,7 +224,7 @@ func (m *Mkdir) Execute(dir string, raw []byte) (Result, error) {
 		return Result{}, fmt.Errorf("path join: %w", err)
 	}
 
-	err = os.MkdirAll(joinedPath, 0755)
+	err = os.MkdirAll(joinedPath, 0750) //nolint:mnd
 	if err != nil {
 		return Result{}, fmt.Errorf("mkdir: %w", err)
 	}
