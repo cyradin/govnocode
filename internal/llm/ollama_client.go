@@ -3,9 +3,11 @@ package llm
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"io"
 	"net/http"
 	"strings"
+	"time"
 )
 
 type OllamaChatRequest struct {
@@ -19,8 +21,29 @@ type OllamaChatMessage struct {
 	Content string `json:"content"`
 }
 
+type OllamaDoneReason = string
+
+const (
+	OllamaDoneReasonStop   = "stop"
+	OllamaDoneReasonLength = "length"
+	OllamaDoneReasonLoad   = "load"
+	OllamaDoneReasonUnload = "unload"
+)
+
 type OllamaChatResponse struct {
-	Message OllamaChatResponseMessage `json:"message"`
+	Model     string                     `json:"model,omitempty"`
+	CreatedAt string                     `json:"created_at"`
+	Message   *OllamaChatResponseMessage `json:"message,omitempty"`
+
+	Done       bool             `json:"done,omitempty"`
+	DoneReason OllamaDoneReason `json:"done_reason,omitempty"`
+
+	TotalDuration      int64 `json:"total_duration,omitempty"`
+	LoadDuration       int64 `json:"load_duration,omitempty"`
+	PromptEvalCount    int   `json:"prompt_eval_count,omitempty"`
+	PromptEvalDuration int64 `json:"prompt_eval_duration,omitempty"`
+	EvalCount          int   `json:"eval_count,omitempty"`
+	EvalDuration       int64 `json:"eval_duration,omitempty"`
 }
 
 type OllamaChatResponseMessage struct {
@@ -56,7 +79,7 @@ func (c *OllamaClient) Generate(messages []ChatMessage) (ChatResponse, error) {
 	}
 
 	resp, err := c.inner.Post(
-		strings.TrimRight(c.baseURL, "/")+"/api/chat",
+		c.makeURL("/api/chat"),
 		"application/json",
 		bytes.NewBuffer(data),
 	)
@@ -76,8 +99,13 @@ func (c *OllamaClient) Generate(messages []ChatMessage) (ChatResponse, error) {
 		return ChatResponse{}, err
 	}
 
+	if ollamaResp.DoneReason != OllamaDoneReasonStop {
+		return ChatResponse{}, fmt.Errorf("request failed with done reason: %s", ollamaResp.DoneReason)
+	}
+
 	return ChatResponse{
-		Message: c.transformResultMessage(ollamaResp.Message),
+		Message:  c.transformResultMessage(ollamaResp.Message),
+		Metadata: c.transformMetadata(ollamaResp),
 	}, nil
 }
 
@@ -94,10 +122,27 @@ func (c *OllamaClient) transformMessages(messages []ChatMessage) []OllamaChatMes
 	return result
 }
 
-func (c *OllamaClient) transformResultMessage(message OllamaChatResponseMessage) ChatResponseMessage {
+func (c *OllamaClient) transformResultMessage(message *OllamaChatResponseMessage) ChatResponseMessage {
+	if message == nil {
+		return ChatResponseMessage{}
+	}
+
 	return ChatResponseMessage{
 		Role:     message.Role,
 		Content:  message.Content,
 		Thinking: message.Thinking,
 	}
+}
+
+func (c *OllamaClient) transformMetadata(resp OllamaChatResponse) CharResponseMetadata {
+	return CharResponseMetadata{
+		PromptProcessingTime:   time.Duration(resp.PromptEvalDuration),
+		ResponseProcessingTime: time.Duration(resp.EvalDuration),
+		PromptTokensUsed:       resp.PromptEvalCount,
+		ResponseTokenUsed:      resp.EvalCount,
+	}
+}
+
+func (c *OllamaClient) makeURL(path string) string {
+	return strings.TrimRight(c.baseURL, "/") + path
 }

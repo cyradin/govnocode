@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 )
@@ -34,19 +35,51 @@ func TestOllamaClient_Generate(t *testing.T) {
 				require.Contains(t, string(body), `"content":"hello"`)
 
 				_, _ = w.Write([]byte(`{
+					"model": "batiai/gemma4-26b:iq4",
+					"created_at": "2026-04-29T11:26:02.135006047Z",
 					"message": {
 						"role": "assistant",
-						"content": "echo hello"
-					}
+						"content": "message",
+						"thinking": "thinking"
+					},
+					"done": true,
+					"done_reason": "stop",
+					"total_duration": 3773606103,
+					"load_duration": 108490601,
+					"prompt_eval_count": 805,
+					"prompt_eval_duration": 724666428,
+					"eval_count": 74,
+					"eval_duration": 2913794162
 				}`))
 			},
 			wantErr: false,
 			expectedOutput: ChatResponse{
 				Message: ChatResponseMessage{
-					Role:    "assistant",
-					Content: "echo hello",
+					Role:     "assistant",
+					Content:  "message",
+					Thinking: "thinking",
+				},
+				Metadata: CharResponseMetadata{
+					PromptProcessingTime:   time.Duration(724666428),
+					ResponseProcessingTime: time.Duration(2913794162),
+					PromptTokensUsed:       805,
+					ResponseTokenUsed:      74,
 				},
 			},
+		},
+		{
+			name: "done reason not stop",
+			serverHandler: func(w http.ResponseWriter, r *http.Request) {
+				_, _ = w.Write([]byte(`{
+					"message": {
+						"role": "assistant",
+						"content": "partial"
+					},
+					"done": true,
+					"done_reason": "length"
+				}`))
+			},
+			wantErr: true,
 		},
 		{
 			name: "http error",

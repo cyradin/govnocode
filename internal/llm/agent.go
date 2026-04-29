@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"time"
 
 	"github.com/cyradin/govnocode/tools"
 )
@@ -14,7 +15,22 @@ type ChatMessage struct {
 }
 
 type ChatResponse struct {
-	Message ChatResponseMessage
+	Message  ChatResponseMessage
+	Metadata CharResponseMetadata
+}
+
+type CharResponseMetadata struct {
+	PromptProcessingTime   time.Duration
+	ResponseProcessingTime time.Duration
+
+	PromptTokensUsed  int
+	ResponseTokenUsed int
+}
+
+type ChatStreamResponse struct {
+	Message  ChatResponseMessage
+	Metadata CharResponseMetadata
+	Done     bool
 }
 
 type ChatResponseMessage struct {
