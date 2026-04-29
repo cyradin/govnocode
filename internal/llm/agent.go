@@ -9,12 +9,22 @@ import (
 )
 
 type ChatMessage struct {
-	Role    string `json:"role"`
-	Content string `json:"content"`
+	Role    string
+	Content string
+}
+
+type ChatResponse struct {
+	Message ChatResponseMessage
+}
+
+type ChatResponseMessage struct {
+	Role     string
+	Content  string
+	Thinking string
 }
 
 type client interface {
-	Generate(messages []ChatMessage) (string, error)
+	Generate(messages []ChatMessage) (ChatResponse, error)
 }
 
 type toolProvider interface {

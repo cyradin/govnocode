@@ -17,7 +17,7 @@ func TestOllamaClient_Generate(t *testing.T) {
 		name           string
 		serverHandler  http.HandlerFunc
 		wantErr        bool
-		expectedOutput string
+		expectedOutput ChatResponse
 	}{
 		{
 			name: "success",
@@ -28,10 +28,8 @@ func TestOllamaClient_Generate(t *testing.T) {
 				body, err := io.ReadAll(r.Body)
 				require.NoError(t, err)
 
-				// проверяем model
 				require.Contains(t, string(body), `"model":"test-model"`)
 
-				// проверяем messages
 				require.Contains(t, string(body), `"role":"user"`)
 				require.Contains(t, string(body), `"content":"hello"`)
 
@@ -42,8 +40,13 @@ func TestOllamaClient_Generate(t *testing.T) {
 					}
 				}`))
 			},
-			wantErr:        false,
-			expectedOutput: "echo hello",
+			wantErr: false,
+			expectedOutput: ChatResponse{
+				Message: ChatResponseMessage{
+					Role:    "assistant",
+					Content: "echo hello",
+				},
+			},
 		},
 		{
 			name: "http error",
