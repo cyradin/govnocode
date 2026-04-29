@@ -16,21 +16,15 @@ type ChatMessage struct {
 
 type ChatResponse struct {
 	Message  ChatResponseMessage
-	Metadata CharResponseMetadata
+	Metadata ChatResponseMetadata
 }
 
-type CharResponseMetadata struct {
+type ChatResponseMetadata struct {
 	PromptProcessingTime   time.Duration
 	ResponseProcessingTime time.Duration
 
 	PromptTokensUsed  int
 	ResponseTokenUsed int
-}
-
-type ChatStreamResponse struct {
-	Message  ChatResponseMessage
-	Metadata CharResponseMetadata
-	Done     bool
 }
 
 type ChatResponseMessage struct {

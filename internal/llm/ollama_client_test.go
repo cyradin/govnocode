@@ -5,6 +5,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
@@ -59,7 +60,7 @@ func TestOllamaClient_Generate(t *testing.T) {
 					Content:  "message",
 					Thinking: "thinking",
 				},
-				Metadata: CharResponseMetadata{
+				Metadata: ChatResponseMetadata{
 					PromptProcessingTime:   time.Duration(724666428),
 					ResponseProcessingTime: time.Duration(2913794162),
 					PromptTokensUsed:       805,
@@ -136,7 +137,167 @@ func TestOllamaClient_Generate(t *testing.T) {
 	}
 }
 
-func TestOllamaClient_Generate_PostError(t *testing.T) {
+func TestOllamaClient_Stream_Success(t *testing.T) {
+	t.Parallel()
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		require.Equal(t, http.MethodPost, r.Method)
+		require.Equal(t, "/api/chat", r.URL.Path)
+
+		flusher, ok := w.(http.Flusher)
+		require.True(t, ok)
+
+		chunks := []string{
+			`{"message":{"role":"assistant","content":"Hel"},"done":false}`,
+			`{"message":{"role":"assistant","content":"lo"},"done":false}`,
+			`{
+				"message":{"role":"assistant","content":""},
+				"done":true,
+				"done_reason":"stop",
+				"prompt_eval_count":10,
+				"eval_count":2,
+				"prompt_eval_duration":100,
+				"eval_duration":200
+			}`,
+		}
+
+		for _, chunk := range chunks {
+			_, err := w.Write([]byte(chunk + "\n"))
+			require.NoError(t, err)
+			flusher.Flush()
+		}
+	}))
+	defer server.Close()
+
+	client := NewOllamaClient(server.URL, "test-model", server.Client())
+
+	stream, errCh := client.Stream([]ChatMessage{
+		{Role: "user", Content: "hello"},
+	})
+
+	var results []ChatResponse
+
+	for msg := range stream {
+		results = append(results, msg)
+	}
+
+	require.NoError(t, <-errCh)
+
+	require.Len(t, results, 3)
+
+	require.Equal(t, "Hel", results[0].Message.Content)
+	require.Equal(t, "lo", results[1].Message.Content)
+
+	require.Equal(t, 10, results[2].Metadata.PromptTokensUsed)
+	require.Equal(t, 2, results[2].Metadata.ResponseTokenUsed)
+}
+
+func TestOllamaClient_Stream_HTTPError(t *testing.T) {
+	t.Parallel()
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusBadRequest)
+		_, _ = w.Write([]byte(`{"error":"bad request"}`))
+	}))
+	defer server.Close()
+
+	client := NewOllamaClient(server.URL, "test-model", server.Client())
+
+	stream, errCh := client.Stream([]ChatMessage{
+		{Role: "user", Content: "hello"},
+	})
+
+	for range stream {
+	}
+
+	err := <-errCh
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "unexpected status")
+	require.Contains(t, err.Error(), "400")
+}
+
+func TestOllamaClient_Stream_HTTPError_LargeBody(t *testing.T) {
+	t.Parallel()
+
+	large := strings.Repeat("a", 10<<10) // 10KB
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusInternalServerError)
+		_, _ = w.Write([]byte(large))
+	}))
+	defer server.Close()
+
+	client := NewOllamaClient(server.URL, "test-model", server.Client())
+
+	stream, errCh := client.Stream([]ChatMessage{
+		{Role: "user", Content: "hello"},
+	})
+
+	for range stream {
+	}
+
+	err := <-errCh
+	require.Error(t, err)
+
+	require.Less(t, len(err.Error()), maxErrorBody+100)
+}
+
+func TestOllamaClient_Stream_DoneReasonError(t *testing.T) {
+	t.Parallel()
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		flusher, ok := w.(http.Flusher)
+		require.True(t, ok)
+
+		_, _ = w.Write([]byte(`{"done":true,"done_reason":"length"}` + "\n"))
+		flusher.Flush()
+	}))
+	defer server.Close()
+
+	client := NewOllamaClient(server.URL, "test-model", server.Client())
+
+	stream, errCh := client.Stream([]ChatMessage{
+		{Role: "user", Content: "hello"},
+	})
+
+	var results []ChatResponse
+	for msg := range stream {
+		results = append(results, msg)
+	}
+
+	require.Empty(t, results)
+
+	err := <-errCh
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "length")
+}
+
+func TestOllamaClient_Stream_InvalidJSON(t *testing.T) {
+	t.Parallel()
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		flusher, ok := w.(http.Flusher)
+		require.True(t, ok)
+
+		_, _ = w.Write([]byte(`invalid-json`))
+		flusher.Flush()
+	}))
+	defer server.Close()
+
+	client := NewOllamaClient(server.URL, "test-model", server.Client())
+
+	stream, errCh := client.Stream([]ChatMessage{
+		{Role: "user", Content: "hello"},
+	})
+
+	for range stream {
+		// nothing
+	}
+
+	require.Error(t, <-errCh)
+}
+
+func TestOllamaClient_Stream_PostError(t *testing.T) {
 	t.Parallel()
 
 	brokenClient := &http.Client{
@@ -147,14 +308,14 @@ func TestOllamaClient_Generate_PostError(t *testing.T) {
 
 	client := NewOllamaClient("http://localhost:1234", "test-model", brokenClient)
 
-	messages := []ChatMessage{
-		{Role: "user", Content: "p"},
+	stream, errCh := client.Stream([]ChatMessage{
+		{Role: "user", Content: "hello"},
+	})
+
+	for range stream {
 	}
 
-	out, err := client.Generate(messages)
-
-	require.Error(t, err)
-	require.Empty(t, out)
+	require.Error(t, <-errCh)
 }
 
 type roundTripFunc func(*http.Request) (*http.Response, error)
