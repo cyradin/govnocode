@@ -2,7 +2,9 @@ package llm
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -68,25 +70,15 @@ func NewOllamaClient(baseURL string, model string, inner *http.Client) *OllamaCl
 	}
 }
 
-func (c *OllamaClient) Generate(messages []ChatMessage) (ChatResponse, error) {
-	reqBody := OllamaChatRequest{
-		Model:    c.model,
-		Stream:   false,
-		Messages: c.transformMessages(messages),
+func (c *OllamaClient) Generate(ctx context.Context, messages []ChatMessage) (ChatResponse, error) {
+	req, err := c.encodeChatRequest(ctx, messages, false)
+	if err != nil {
+		return ChatResponse{}, fmt.Errorf("create request: %w", err)
 	}
 
-	data, err := json.Marshal(reqBody)
+	resp, err := c.inner.Do(req)
 	if err != nil {
-		return ChatResponse{}, err
-	}
-
-	resp, err := c.inner.Post(
-		c.makeURL("/api/chat"),
-		"application/json",
-		bytes.NewBuffer(data),
-	)
-	if err != nil {
-		return ChatResponse{}, err
+		return ChatResponse{}, fmt.Errorf("perform request: %w", err)
 	}
 
 	defer func() { _ = resp.Body.Close() }()
@@ -97,12 +89,12 @@ func (c *OllamaClient) Generate(messages []ChatMessage) (ChatResponse, error) {
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return ChatResponse{}, err
+		return ChatResponse{}, fmt.Errorf("read body: %w", err)
 	}
 
 	var ollamaResp OllamaChatResponse
 	if err := json.Unmarshal(body, &ollamaResp); err != nil {
-		return ChatResponse{}, err
+		return ChatResponse{}, fmt.Errorf("unmarshal response: %w", err)
 	}
 
 	if ollamaResp.DoneReason != OllamaDoneReasonStop {
@@ -112,40 +104,30 @@ func (c *OllamaClient) Generate(messages []ChatMessage) (ChatResponse, error) {
 	return c.transformChatResponse(ollamaResp), nil
 }
 
-func (c *OllamaClient) Stream(messages []ChatMessage) (<-chan ChatResponse, <-chan error) {
-	out := make(chan ChatResponse)
-	errCh := make(chan error, 1)
+func (c *OllamaClient) Stream(ctx context.Context, messages []ChatMessage) <-chan ChatResult {
+	out := make(chan ChatResult)
 
 	go func() {
 		defer close(out)
-		defer close(errCh)
 
-		reqBody := OllamaChatRequest{
-			Model:    c.model,
-			Stream:   true,
-			Messages: c.transformMessages(messages),
-		}
-
-		data, err := json.Marshal(reqBody)
+		req, err := c.encodeChatRequest(ctx, messages, true)
 		if err != nil {
-			errCh <- err
+			out <- ChatResult{Err: fmt.Errorf("create request: %w", err)}
+
 			return
 		}
 
-		resp, err := c.inner.Post(
-			strings.TrimRight(c.baseURL, "/")+"/api/chat",
-			"application/json",
-			bytes.NewReader(data),
-		)
+		resp, err := c.inner.Do(req)
 		if err != nil {
-			errCh <- err
+			out <- ChatResult{Err: fmt.Errorf("perform request: %w", err)}
+
 			return
 		}
 
 		defer func() { _ = resp.Body.Close() }()
 
 		if resp.StatusCode != http.StatusOK {
-			errCh <- c.readHTTPError(resp)
+			out <- ChatResult{Err: c.readHTTPError(resp)}
 
 			return
 		}
@@ -156,32 +138,60 @@ func (c *OllamaClient) Stream(messages []ChatMessage) (<-chan ChatResponse, <-ch
 			var chunk OllamaChatResponse
 
 			if err := dec.Decode(&chunk); err != nil {
-				if err == io.EOF {
+				if errors.Is(err, io.EOF) {
 					return
 				}
 
-				errCh <- err
+				out <- ChatResult{Err: fmt.Errorf("unmarshal response: %w", err)}
 
 				return
 			}
 
 			if chunk.Done {
 				if chunk.DoneReason != OllamaDoneReasonStop {
-					errCh <- fmt.Errorf("request failed with done reason: %s", chunk.DoneReason)
+					out <- ChatResult{
+						Resp: c.transformChatResponse(chunk),
+						Err:  fmt.Errorf("request failed with done reason: %s", chunk.DoneReason),
+					}
 
 					return
 				}
 
-				out <- c.transformChatResponse(chunk)
+				out <- ChatResult{Resp: c.transformChatResponse(chunk)}
 
 				break
 			}
 
-			out <- c.transformChatResponse(chunk)
+			out <- ChatResult{Resp: c.transformChatResponse(chunk)}
 		}
 	}()
 
-	return out, errCh
+	return out
+}
+
+func (c *OllamaClient) encodeChatRequest(ctx context.Context, messages []ChatMessage, stream bool) (*http.Request, error) {
+	reqBody := OllamaChatRequest{
+		Model:    c.model,
+		Stream:   stream,
+		Messages: c.transformMessages(messages),
+	}
+
+	data, err := json.Marshal(reqBody)
+	if err != nil {
+		return nil, fmt.Errorf("json marshal: %w", err)
+	}
+
+	req, err := http.NewRequestWithContext(
+		ctx,
+		http.MethodPost,
+		c.makeURL("/api/chat"),
+		bytes.NewReader(data),
+	)
+	if err != nil {
+		return nil, fmt.Errorf("make http request: %w", err)
+	}
+
+	return req, nil
 }
 
 func (c *OllamaClient) transformMessages(messages []ChatMessage) []OllamaChatMessage {
@@ -204,12 +214,12 @@ func (c *OllamaClient) transformChatResponse(resp OllamaChatResponse) ChatRespon
 	}
 }
 
-func (c *OllamaClient) transformResultMessage(message *OllamaChatResponseMessage) ChatResponseMessage {
+func (c *OllamaClient) transformResultMessage(message *OllamaChatResponseMessage) ChatMessage {
 	if message == nil {
-		return ChatResponseMessage{}
+		return ChatMessage{}
 	}
 
-	return ChatResponseMessage{
+	return ChatMessage{
 		Role:     message.Role,
 		Content:  message.Content,
 		Thinking: message.Thinking,

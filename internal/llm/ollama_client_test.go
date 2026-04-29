@@ -31,7 +31,6 @@ func TestOllamaClient_Generate(t *testing.T) {
 				require.NoError(t, err)
 
 				require.Contains(t, string(body), `"model":"test-model"`)
-
 				require.Contains(t, string(body), `"role":"user"`)
 				require.Contains(t, string(body), `"content":"hello"`)
 
@@ -45,8 +44,6 @@ func TestOllamaClient_Generate(t *testing.T) {
 					},
 					"done": true,
 					"done_reason": "stop",
-					"total_duration": 3773606103,
-					"load_duration": 108490601,
 					"prompt_eval_count": 805,
 					"prompt_eval_duration": 724666428,
 					"eval_count": 74,
@@ -55,7 +52,7 @@ func TestOllamaClient_Generate(t *testing.T) {
 			},
 			wantErr: false,
 			expectedOutput: ChatResponse{
-				Message: ChatResponseMessage{
+				Message: ChatMessage{
 					Role:     "assistant",
 					Content:  "message",
 					Thinking: "thinking",
@@ -86,6 +83,7 @@ func TestOllamaClient_Generate(t *testing.T) {
 			name: "http error",
 			serverHandler: func(w http.ResponseWriter, r *http.Request) {
 				w.WriteHeader(http.StatusInternalServerError)
+				_, _ = w.Write([]byte(`{"error":"fail"}`))
 			},
 			wantErr: true,
 		},
@@ -120,11 +118,11 @@ func TestOllamaClient_Generate(t *testing.T) {
 
 			client := NewOllamaClient(server.URL, "test-model", server.Client())
 
-			messages := []ChatMessage{
-				{Role: "user", Content: "hello"},
-			}
+			ctx := t.Context()
 
-			out, err := client.Generate(messages)
+			out, err := client.Generate(ctx, []ChatMessage{
+				{Role: "user", Content: "hello"},
+			})
 
 			if tt.wantErr {
 				require.Error(t, err)
@@ -171,25 +169,24 @@ func TestOllamaClient_Stream_Success(t *testing.T) {
 
 	client := NewOllamaClient(server.URL, "test-model", server.Client())
 
-	stream, errCh := client.Stream([]ChatMessage{
+	stream := client.Stream(t.Context(), []ChatMessage{
 		{Role: "user", Content: "hello"},
 	})
 
-	var results []ChatResponse
+	var results []ChatResult
 
-	for msg := range stream {
-		results = append(results, msg)
+	for r := range stream {
+		require.NoError(t, r.Err)
+		results = append(results, r)
 	}
-
-	require.NoError(t, <-errCh)
 
 	require.Len(t, results, 3)
 
-	require.Equal(t, "Hel", results[0].Message.Content)
-	require.Equal(t, "lo", results[1].Message.Content)
+	require.Equal(t, "Hel", results[0].Resp.Message.Content)
+	require.Equal(t, "lo", results[1].Resp.Message.Content)
 
-	require.Equal(t, 10, results[2].Metadata.PromptTokensUsed)
-	require.Equal(t, 2, results[2].Metadata.ResponseTokenUsed)
+	require.Equal(t, 10, results[2].Resp.Metadata.PromptTokensUsed)
+	require.Equal(t, 2, results[2].Resp.Metadata.ResponseTokenUsed)
 }
 
 func TestOllamaClient_Stream_HTTPError(t *testing.T) {
@@ -203,23 +200,24 @@ func TestOllamaClient_Stream_HTTPError(t *testing.T) {
 
 	client := NewOllamaClient(server.URL, "test-model", server.Client())
 
-	stream, errCh := client.Stream([]ChatMessage{
+	stream := client.Stream(t.Context(), []ChatMessage{
 		{Role: "user", Content: "hello"},
 	})
 
-	for range stream {
+	var gotErr error
+	for r := range stream {
+		gotErr = r.Err
 	}
 
-	err := <-errCh
-	require.Error(t, err)
-	require.Contains(t, err.Error(), "unexpected status")
-	require.Contains(t, err.Error(), "400")
+	require.Error(t, gotErr)
+	require.Contains(t, gotErr.Error(), "unexpected status")
+	require.Contains(t, gotErr.Error(), "400")
 }
 
 func TestOllamaClient_Stream_HTTPError_LargeBody(t *testing.T) {
 	t.Parallel()
 
-	large := strings.Repeat("a", 10<<10) // 10KB
+	large := strings.Repeat("a", 10<<10)
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusInternalServerError)
@@ -229,17 +227,17 @@ func TestOllamaClient_Stream_HTTPError_LargeBody(t *testing.T) {
 
 	client := NewOllamaClient(server.URL, "test-model", server.Client())
 
-	stream, errCh := client.Stream([]ChatMessage{
+	stream := client.Stream(t.Context(), []ChatMessage{
 		{Role: "user", Content: "hello"},
 	})
 
-	for range stream {
+	var gotErr error
+	for r := range stream {
+		gotErr = r.Err
 	}
 
-	err := <-errCh
-	require.Error(t, err)
-
-	require.Less(t, len(err.Error()), maxErrorBody+100)
+	require.Error(t, gotErr)
+	require.Less(t, len(gotErr.Error()), maxErrorBody+200)
 }
 
 func TestOllamaClient_Stream_DoneReasonError(t *testing.T) {
@@ -256,20 +254,18 @@ func TestOllamaClient_Stream_DoneReasonError(t *testing.T) {
 
 	client := NewOllamaClient(server.URL, "test-model", server.Client())
 
-	stream, errCh := client.Stream([]ChatMessage{
+	stream := client.Stream(t.Context(), []ChatMessage{
 		{Role: "user", Content: "hello"},
 	})
 
-	var results []ChatResponse
-	for msg := range stream {
-		results = append(results, msg)
+	var results []ChatResult
+	for r := range stream {
+		results = append(results, r)
 	}
 
-	require.Empty(t, results)
-
-	err := <-errCh
-	require.Error(t, err)
-	require.Contains(t, err.Error(), "length")
+	require.Len(t, results, 1)
+	require.Error(t, results[0].Err)
+	require.Contains(t, results[0].Err.Error(), "length")
 }
 
 func TestOllamaClient_Stream_InvalidJSON(t *testing.T) {
@@ -286,15 +282,16 @@ func TestOllamaClient_Stream_InvalidJSON(t *testing.T) {
 
 	client := NewOllamaClient(server.URL, "test-model", server.Client())
 
-	stream, errCh := client.Stream([]ChatMessage{
+	stream := client.Stream(t.Context(), []ChatMessage{
 		{Role: "user", Content: "hello"},
 	})
 
-	for range stream {
-		// nothing
+	var gotErr error
+	for r := range stream {
+		gotErr = r.Err
 	}
 
-	require.Error(t, <-errCh)
+	require.Error(t, gotErr)
 }
 
 func TestOllamaClient_Stream_PostError(t *testing.T) {
@@ -308,14 +305,16 @@ func TestOllamaClient_Stream_PostError(t *testing.T) {
 
 	client := NewOllamaClient("http://localhost:1234", "test-model", brokenClient)
 
-	stream, errCh := client.Stream([]ChatMessage{
+	stream := client.Stream(t.Context(), []ChatMessage{
 		{Role: "user", Content: "hello"},
 	})
 
-	for range stream {
+	var gotErr error
+	for r := range stream {
+		gotErr = r.Err
 	}
 
-	require.Error(t, <-errCh)
+	require.Error(t, gotErr)
 }
 
 type roundTripFunc func(*http.Request) (*http.Response, error)

@@ -3,6 +3,7 @@ package container
 import (
 	"log/slog"
 
+	"github.com/cyradin/govnocode/internal/agent"
 	"github.com/cyradin/govnocode/internal/config"
 	"github.com/cyradin/govnocode/internal/llm"
 	"github.com/cyradin/govnocode/pkg/logger"
@@ -14,7 +15,7 @@ type Container struct {
 	cfg     *config.Config
 	logger  *slog.Logger
 
-	agent *llm.Agent
+	agent *agent.CodingAgent
 
 	toolRegistry *tools.Registry
 	ollamaClient *llm.OllamaClient

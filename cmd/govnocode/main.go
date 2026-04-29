@@ -34,7 +34,7 @@ func run(_ *config.Config, container *container.Container) error {
 
 	errCh := make(chan error, 1)
 
-	agent := container.Agent()
+	agent := container.CodingAgent()
 
 	go func() {
 		logger.FromContext(ctx).Info("app started")

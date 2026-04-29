@@ -1,85 +1,55 @@
-package llm
+package agent
 
 import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"time"
 
+	"github.com/cyradin/govnocode/internal/llm"
 	"github.com/cyradin/govnocode/tools"
 )
-
-type ChatMessage struct {
-	Role    string
-	Content string
-}
-
-type ChatResponse struct {
-	Message  ChatResponseMessage
-	Metadata ChatResponseMetadata
-}
-
-type ChatResponseMetadata struct {
-	PromptProcessingTime   time.Duration
-	ResponseProcessingTime time.Duration
-
-	PromptTokensUsed  int
-	ResponseTokenUsed int
-}
-
-type ChatResponseMessage struct {
-	Role     string
-	Content  string
-	Thinking string
-}
-
-type client interface {
-	Generate(messages []ChatMessage) (ChatResponse, error)
-}
 
 type toolProvider interface {
 	Get(code string) (tools.Tool, error)
 	All() []tools.Tool
 }
 
-type Agent struct {
-	client client
-	tools  toolProvider
+type llmClient interface {
+	Stream(ctx context.Context, messages []llm.ChatMessage) <-chan llm.ChatResult
 }
 
-func NewAgent(client client, tools toolProvider) *Agent {
-	return &Agent{
-		client: client,
-		tools:  tools,
+type CodingAgent struct {
+	llmClient llmClient
+	tools     toolProvider
+}
+
+func NewCoding(
+	llmClient llmClient,
+	toolProvider toolProvider,
+) *CodingAgent {
+	return &CodingAgent{
+		llmClient: llmClient,
+		tools:     toolProvider,
 	}
 }
 
-func (a *Agent) Start(ctx context.Context, task string) error {
+func (a *CodingAgent) Start(ctx context.Context, task string) error {
 	systemPrompt, err := a.systemPrompt()
 	if err != nil {
 		return fmt.Errorf("make system prompt: %w", err)
 	}
 
-	messages := []ChatMessage{
-		{
-			Role:    "system",
-			Content: systemPrompt,
-		},
-		{
-			Role:    "user",
-			Content: task,
-		},
+	llmSession := llm.NewSession(a.llmClient, systemPrompt)
+	msgs := llmSession.WriteMessage(ctx, task)
+
+	for range msgs {
+		//	fmt.Println(msg)
 	}
 
-	resp, err := a.client.Generate(messages)
-
-	fmt.Println(resp)
-	fmt.Println(err)
-
-	return fmt.Errorf("error")
+	return nil
 }
 
-func (a *Agent) systemPrompt() (string, error) {
+func (a *CodingAgent) systemPrompt() (string, error) {
 	allTools := a.tools.All()
 
 	specs := make([]tools.Spec, 0, len(allTools))
@@ -92,10 +62,10 @@ func (a *Agent) systemPrompt() (string, error) {
 		return "", fmt.Errorf("json marshal: %w", err)
 	}
 
-	return fmt.Sprintf(systemPrompt, string(toolsRaw)), nil
+	return fmt.Sprintf(codingAgentSystemPrompt, string(toolsRaw)), nil
 }
 
-const systemPrompt = `
+const codingAgentSystemPrompt = `
 You are an autonomous Go coding agent operating in a sandboxed repository.
 
 Your task is to solve software engineering problems using tools, code changes, and tests.

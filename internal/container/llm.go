@@ -3,12 +3,13 @@ package container
 import (
 	"net/http"
 
+	"github.com/cyradin/govnocode/internal/agent"
 	"github.com/cyradin/govnocode/internal/llm"
 )
 
-func (c *Container) Agent() *llm.Agent {
+func (c *Container) CodingAgent() *agent.CodingAgent {
 	if c.agent == nil {
-		c.agent = llm.NewAgent(
+		c.agent = agent.NewCoding(
 			c.OllamaClient(),
 			c.ToolRegistry(),
 		)
