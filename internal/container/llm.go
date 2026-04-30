@@ -2,6 +2,7 @@ package container
 
 import (
 	"net/http"
+	"os"
 
 	"github.com/cyradin/govnocode/internal/agent"
 	"github.com/cyradin/govnocode/internal/llm"
@@ -10,6 +11,7 @@ import (
 func (c *Container) CodingAgent() *agent.CodingAgent {
 	if c.agent == nil {
 		c.agent = agent.NewCoding(
+			os.Stdout,
 			c.OllamaClient(),
 			c.ToolRegistry(),
 		)

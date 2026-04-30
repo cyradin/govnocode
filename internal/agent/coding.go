@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 
 	"github.com/cyradin/govnocode/internal/llm"
 	"github.com/cyradin/govnocode/tools"
@@ -19,15 +20,18 @@ type llmClient interface {
 }
 
 type CodingAgent struct {
+	out       io.Writer
 	llmClient llmClient
 	tools     toolProvider
 }
 
 func NewCoding(
+	out io.Writer,
 	llmClient llmClient,
 	toolProvider toolProvider,
 ) *CodingAgent {
 	return &CodingAgent{
+		out:       out,
 		llmClient: llmClient,
 		tools:     toolProvider,
 	}
@@ -39,12 +43,14 @@ func (a *CodingAgent) Start(ctx context.Context, task string) error {
 		return fmt.Errorf("make system prompt: %w", err)
 	}
 
-	llmSession := llm.NewSession(a.llmClient, systemPrompt)
-	msgs := llmSession.WriteMessage(ctx, task)
-
-	for range msgs {
-		//	fmt.Println(msg)
+	if err := printTask(a.out, task); err != nil {
+		return fmt.Errorf("print task text: %w", err)
 	}
+
+	llmSession := llm.NewSession(a.llmClient, systemPrompt)
+	results := llmSession.WriteMessage(ctx, task)
+
+	printLLMResponse(a.out, results)
 
 	return nil
 }
