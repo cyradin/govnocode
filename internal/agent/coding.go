@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"io"
 
 	"github.com/cyradin/govnocode/internal/llm"
 	"github.com/cyradin/govnocode/tools"
@@ -19,19 +18,24 @@ type llmClient interface {
 	Stream(ctx context.Context, messages []llm.ChatMessage) <-chan llm.ChatResult
 }
 
+type printer interface {
+	PrintTaskText(task string) error
+	PrintLLMResponse(messages <-chan PrinterLLMMessage) error
+}
+
 type CodingAgent struct {
-	out       io.Writer
+	printer   printer
 	llmClient llmClient
 	tools     toolProvider
 }
 
 func NewCoding(
-	out io.Writer,
+	printer printer,
 	llmClient llmClient,
 	toolProvider toolProvider,
 ) *CodingAgent {
 	return &CodingAgent{
-		out:       out,
+		printer:   printer,
 		llmClient: llmClient,
 		tools:     toolProvider,
 	}
@@ -43,16 +47,40 @@ func (a *CodingAgent) Start(ctx context.Context, task string) error {
 		return fmt.Errorf("make system prompt: %w", err)
 	}
 
-	if err := printTask(a.out, task); err != nil {
+	if err := a.printer.PrintTaskText(task); err != nil {
 		return fmt.Errorf("print task text: %w", err)
 	}
 
 	llmSession := llm.NewSession(a.llmClient, systemPrompt)
-	results := llmSession.WriteMessage(ctx, task)
 
-	_ = printLLMResponse(a.out, results)
+	_, err = a.writeMessage(ctx, task, llmSession)
+	if err != nil {
+		return err
+	}
 
 	return nil
+}
+
+func (a *CodingAgent) writeMessage(ctx context.Context, text string, llmSession *llm.Session) (llm.ChatMessage, error) {
+	printerCh := make(chan PrinterLLMMessage)
+	defer close(printerCh)
+
+	go func() {
+		_ = a.printer.PrintLLMResponse(printerCh)
+	}()
+
+	for part := range llmSession.WriteMessage(ctx, text) {
+		if err := part.Err; err != nil {
+			return llm.ChatMessage{}, fmt.Errorf("send message to llm :%w", err)
+		}
+
+		printerCh <- PrinterLLMMessage{
+			Content:  part.Resp.Message.Content,
+			Thinking: part.Resp.Message.Thinking,
+		}
+	}
+
+	return llmSession.LastMessage(), nil
 }
 
 func (a *CodingAgent) systemPrompt() (string, error) {
@@ -72,83 +100,22 @@ func (a *CodingAgent) systemPrompt() (string, error) {
 }
 
 const codingAgentSystemPrompt = `
+<instructions>
 You are an autonomous Go coding agent operating in a sandboxed repository.
-
 Your task is to solve software engineering problems using tools, code changes, and tests.
+To perform your task, you have to use the provided list of available tools, following below.
 
-You are deterministic and tool-driven.
-
----
-
-# RULES
-
-- Write Go code only.
-- Follow Effective Go.
-- Prefer minimal, idiomatic solutions.
-- No unnecessary abstractions.
-
----
-
-# TESTING
-
-- Use github.com/stretchr/testify/require for all tests.
-- Use table-driven tests when applicable.
-- Use t.Parallel() when safe.
-- Always check errors explicitly.
-- Avoid flaky or non-deterministic tests.
-
----
-
-# TOOLS
-
-Available tools:
-
-<tools>
-%s
-</tools>
-
-Tool rules:
-- Always use tools instead of guessing file contents.
-- Never assume repository state.
-- Do not simulate tool results.
-- Use only one tool per message
-
----
-
-# TOOL CALL FORMAT (STRICT)
-
-If you use a tool, respond ONLY with valid JSON:
-
+- You can do only one thing per response:
+	1) tool call JSON
+	2) final answer
+- If you use a tool, respond with valid JSON:
 {
   "tool": "<tool_code>",
   "args": { }
 }
+</instructions>
 
-No text.
-No markdown.
-No explanation.
-No prefixes or suffixes.
-
-Any deviation is invalid.
-
-# GIT
-
-- One logical change per commit
-- Clear commit messages
-- Never commit broken code
-
----
-
-# OUTPUT RULE
-
-- Tool usage → JSON only
-- Final answer → concise text only (no tools)
-
----
-
-# BEHAVIOR
-
-You must prioritize tool usage over explanation.
-
-Do not think out loud.
-Do not describe your plan unless explicitly asked.`
+<tools>
+%s
+</tools>
+`
