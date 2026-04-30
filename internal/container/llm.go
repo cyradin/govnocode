@@ -8,10 +8,18 @@ import (
 	"github.com/cyradin/govnocode/internal/llm"
 )
 
+func (c *Container) Printer() *agent.Printer {
+	if c.printer == nil {
+		c.printer = agent.NewPrinter(os.Stdout)
+	}
+
+	return c.printer
+}
+
 func (c *Container) CodingAgent() *agent.CodingAgent {
 	if c.agent == nil {
 		c.agent = agent.NewCoding(
-			os.Stdout,
+			c.Printer(),
 			c.OllamaClient(),
 			c.ToolRegistry(),
 		)
@@ -27,6 +35,13 @@ func (c *Container) OllamaClient() *llm.OllamaClient {
 			c.cfg.LLM.Ollama.Model,
 			&http.Client{
 				Timeout: c.cfg.LLM.Ollama.HTTPTimeout,
+			},
+			llm.OllamaOptions{
+				Temperature:   c.cfg.LLM.Ollama.Temperature,
+				TopP:          c.cfg.LLM.Ollama.TopP,
+				TopK:          c.cfg.LLM.Ollama.TopK,
+				RepeatPenalty: c.cfg.LLM.Ollama.RepeatPenalty,
+				NumPredict:    c.cfg.LLM.Ollama.NumPredict,
 			},
 		)
 	}

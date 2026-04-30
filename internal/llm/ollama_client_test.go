@@ -1,6 +1,7 @@
 package llm
 
 import (
+	"encoding/json"
 	"errors"
 	"io"
 	"net/http"
@@ -116,7 +117,7 @@ func TestOllamaClient_Generate(t *testing.T) {
 			server := httptest.NewServer(tt.serverHandler)
 			defer server.Close()
 
-			client := NewOllamaClient(server.URL, "test-model", server.Client())
+			client := NewOllamaClient(server.URL, "test-model", server.Client(), OllamaOptions{})
 
 			ctx := t.Context()
 
@@ -167,7 +168,7 @@ func TestOllamaClient_Stream_Success(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := NewOllamaClient(server.URL, "test-model", server.Client())
+	client := NewOllamaClient(server.URL, "test-model", server.Client(), OllamaOptions{})
 
 	stream := client.Stream(t.Context(), []ChatMessage{
 		{Role: "user", Content: "hello"},
@@ -198,7 +199,7 @@ func TestOllamaClient_Stream_HTTPError(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := NewOllamaClient(server.URL, "test-model", server.Client())
+	client := NewOllamaClient(server.URL, "test-model", server.Client(), OllamaOptions{})
 
 	stream := client.Stream(t.Context(), []ChatMessage{
 		{Role: "user", Content: "hello"},
@@ -225,7 +226,7 @@ func TestOllamaClient_Stream_HTTPError_LargeBody(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := NewOllamaClient(server.URL, "test-model", server.Client())
+	client := NewOllamaClient(server.URL, "test-model", server.Client(), OllamaOptions{})
 
 	stream := client.Stream(t.Context(), []ChatMessage{
 		{Role: "user", Content: "hello"},
@@ -253,7 +254,7 @@ func TestOllamaClient_Stream_DoneReasonError(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := NewOllamaClient(server.URL, "test-model", server.Client())
+	client := NewOllamaClient(server.URL, "test-model", server.Client(), OllamaOptions{})
 
 	stream := client.Stream(t.Context(), []ChatMessage{
 		{Role: "user", Content: "hello"},
@@ -282,7 +283,7 @@ func TestOllamaClient_Stream_InvalidJSON(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := NewOllamaClient(server.URL, "test-model", server.Client())
+	client := NewOllamaClient(server.URL, "test-model", server.Client(), OllamaOptions{})
 
 	stream := client.Stream(t.Context(), []ChatMessage{
 		{Role: "user", Content: "hello"},
@@ -305,7 +306,7 @@ func TestOllamaClient_Stream_PostError(t *testing.T) {
 		}),
 	}
 
-	client := NewOllamaClient("http://localhost:1234", "test-model", brokenClient)
+	client := NewOllamaClient("http://localhost:1234", "test-model", brokenClient, OllamaOptions{})
 
 	stream := client.Stream(t.Context(), []ChatMessage{
 		{Role: "user", Content: "hello"},
@@ -323,4 +324,40 @@ type roundTripFunc func(*http.Request) (*http.Response, error)
 
 func (f roundTripFunc) RoundTrip(r *http.Request) (*http.Response, error) {
 	return f(r)
+}
+
+func TestOllamaClient_OptionsPropagation(t *testing.T) {
+	t.Parallel()
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		body, err := io.ReadAll(r.Body)
+		require.NoError(t, err)
+
+		var req OllamaChatRequest
+
+		require.NoError(t, json.Unmarshal(body, &req))
+
+		require.Equal(t, 0.0, req.Options.Temperature)
+		require.Equal(t, 150, req.Options.NumPredict)
+
+		_, _ = w.Write([]byte(`{"done":true,"done_reason":"stop"}`))
+	}))
+	defer server.Close()
+
+	client := NewOllamaClient(
+		server.URL,
+		"test-model",
+		server.Client(),
+		OllamaOptions{
+			Temperature: 0.0,
+			NumPredict:  150,
+		},
+	)
+
+	stream := client.Stream(t.Context(), []ChatMessage{
+		{Role: "user", Content: "hello"},
+	})
+
+	for range stream {
+	}
 }

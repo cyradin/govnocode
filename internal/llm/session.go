@@ -98,3 +98,11 @@ func (s *Session) WriteMessage(ctx context.Context, text string) <-chan ChatResu
 
 	return out
 }
+
+func (s *Session) LastMessage() ChatMessage {
+	if len(s.messages) == 0 {
+		return ChatMessage{}
+	}
+
+	return s.messages[len(s.messages)-1]
+}

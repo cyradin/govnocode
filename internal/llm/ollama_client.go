@@ -18,6 +18,15 @@ type OllamaChatRequest struct {
 	Model    string              `json:"model"`
 	Messages []OllamaChatMessage `json:"messages"`
 	Stream   bool                `json:"stream"`
+	Options  OllamaOptions       `json:"options"`
+}
+
+type OllamaOptions struct {
+	Temperature   float64 `json:"temperature,omitempty"`
+	TopP          float64 `json:"top_p,omitempty"`
+	TopK          int     `json:"top_k,omitempty"`
+	RepeatPenalty float64 `json:"repeat_penalty,omitempty"`
+	NumPredict    int     `json:"num_predict,omitempty"`
 }
 
 type OllamaChatMessage struct {
@@ -60,13 +69,15 @@ type OllamaClient struct {
 	baseURL string
 	model   string
 	inner   *http.Client
+	options OllamaOptions
 }
 
-func NewOllamaClient(baseURL string, model string, inner *http.Client) *OllamaClient {
+func NewOllamaClient(baseURL string, model string, inner *http.Client, options OllamaOptions) *OllamaClient {
 	return &OllamaClient{
 		baseURL: baseURL,
 		model:   model,
 		inner:   inner,
+		options: options,
 	}
 }
 
@@ -162,6 +173,7 @@ func (c *OllamaClient) doChatRequest(ctx context.Context, messages []ChatMessage
 		Model:    c.model,
 		Stream:   stream,
 		Messages: c.transformMessages(messages),
+		Options:  c.options,
 	}
 
 	data, err := json.Marshal(reqBody)
