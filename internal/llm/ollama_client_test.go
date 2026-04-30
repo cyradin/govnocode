@@ -248,6 +248,7 @@ func TestOllamaClient_Stream_DoneReasonError(t *testing.T) {
 		require.True(t, ok)
 
 		_, _ = w.Write([]byte(`{"done":true,"done_reason":"length"}` + "\n"))
+
 		flusher.Flush()
 	}))
 	defer server.Close()
@@ -276,6 +277,7 @@ func TestOllamaClient_Stream_InvalidJSON(t *testing.T) {
 		require.True(t, ok)
 
 		_, _ = w.Write([]byte(`invalid-json`))
+
 		flusher.Flush()
 	}))
 	defer server.Close()

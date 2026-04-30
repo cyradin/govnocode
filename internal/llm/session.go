@@ -83,11 +83,13 @@ func (s *Session) WriteMessage(ctx context.Context, text string) <-chan ChatResu
 		for r := range in {
 			if err := r.Err; err != nil {
 				out <- r
+
 				return
 			}
 
 			message.Content += r.Resp.Message.Content
 			message.Thinking += r.Resp.Message.Thinking
+
 			out <- r
 		}
 

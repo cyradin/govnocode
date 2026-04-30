@@ -50,7 +50,7 @@ func (a *CodingAgent) Start(ctx context.Context, task string) error {
 	llmSession := llm.NewSession(a.llmClient, systemPrompt)
 	results := llmSession.WriteMessage(ctx, task)
 
-	printLLMResponse(a.out, results)
+	_ = printLLMResponse(a.out, results)
 
 	return nil
 }

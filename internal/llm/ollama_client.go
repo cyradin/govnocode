@@ -71,14 +71,9 @@ func NewOllamaClient(baseURL string, model string, inner *http.Client) *OllamaCl
 }
 
 func (c *OllamaClient) Generate(ctx context.Context, messages []ChatMessage) (ChatResponse, error) {
-	req, err := c.encodeChatRequest(ctx, messages, false)
+	resp, err := c.doChatRequest(ctx, messages, false)
 	if err != nil {
-		return ChatResponse{}, fmt.Errorf("create request: %w", err)
-	}
-
-	resp, err := c.inner.Do(req)
-	if err != nil {
-		return ChatResponse{}, fmt.Errorf("perform request: %w", err)
+		return ChatResponse{}, err
 	}
 
 	defer func() { _ = resp.Body.Close() }()
@@ -110,16 +105,9 @@ func (c *OllamaClient) Stream(ctx context.Context, messages []ChatMessage) <-cha
 	go func() {
 		defer close(out)
 
-		req, err := c.encodeChatRequest(ctx, messages, true)
+		resp, err := c.doChatRequest(ctx, messages, true)
 		if err != nil {
-			out <- ChatResult{Err: fmt.Errorf("create request: %w", err)}
-
-			return
-		}
-
-		resp, err := c.inner.Do(req)
-		if err != nil {
-			out <- ChatResult{Err: fmt.Errorf("perform request: %w", err)}
+			out <- ChatResult{Err: err}
 
 			return
 		}
@@ -169,7 +157,7 @@ func (c *OllamaClient) Stream(ctx context.Context, messages []ChatMessage) <-cha
 	return out
 }
 
-func (c *OllamaClient) encodeChatRequest(ctx context.Context, messages []ChatMessage, stream bool) (*http.Request, error) {
+func (c *OllamaClient) doChatRequest(ctx context.Context, messages []ChatMessage, stream bool) (*http.Response, error) {
 	reqBody := OllamaChatRequest{
 		Model:    c.model,
 		Stream:   stream,
@@ -188,10 +176,15 @@ func (c *OllamaClient) encodeChatRequest(ctx context.Context, messages []ChatMes
 		bytes.NewReader(data),
 	)
 	if err != nil {
-		return nil, fmt.Errorf("make http request: %w", err)
+		return nil, fmt.Errorf("create http request: %w", err)
 	}
 
-	return req, nil
+	resp, err := c.inner.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("perform request: %w", err)
+	}
+
+	return resp, nil
 }
 
 func (c *OllamaClient) transformMessages(messages []ChatMessage) []OllamaChatMessage {
@@ -241,6 +234,7 @@ func (c *OllamaClient) makeURL(path string) string {
 
 func (c *OllamaClient) readHTTPError(resp *http.Response) error {
 	body, _ := io.ReadAll(io.LimitReader(resp.Body, maxErrorBody))
+
 	return fmt.Errorf(
 		"unexpected status %d: %s",
 		resp.StatusCode,
