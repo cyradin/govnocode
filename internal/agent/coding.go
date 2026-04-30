@@ -7,6 +7,7 @@ import (
 
 	"github.com/cyradin/govnocode/internal/llm"
 	"github.com/cyradin/govnocode/tools"
+	"golang.org/x/sync/errgroup"
 )
 
 type toolProvider interface {
@@ -63,21 +64,32 @@ func (a *CodingAgent) Start(ctx context.Context, task string) error {
 
 func (a *CodingAgent) writeMessage(ctx context.Context, text string, llmSession *llm.Session) (llm.ChatMessage, error) {
 	printerCh := make(chan PrinterLLMMessage)
-	defer close(printerCh)
 
-	go func() {
-		_ = a.printer.PrintLLMResponse(printerCh)
-	}()
+	eg := errgroup.Group{}
 
-	for part := range llmSession.WriteMessage(ctx, text) {
-		if err := part.Err; err != nil {
-			return llm.ChatMessage{}, fmt.Errorf("send message to llm :%w", err)
+	eg.Go(func() error {
+		return a.printer.PrintLLMResponse(printerCh)
+	})
+
+	eg.Go(func() error {
+		defer close(printerCh)
+
+		for part := range llmSession.WriteMessage(ctx, text) {
+			if err := part.Err; err != nil {
+				return fmt.Errorf("send message to llm :%w", err)
+			}
+
+			printerCh <- PrinterLLMMessage{
+				Content:  part.Resp.Message.Content,
+				Thinking: part.Resp.Message.Thinking,
+			}
 		}
 
-		printerCh <- PrinterLLMMessage{
-			Content:  part.Resp.Message.Content,
-			Thinking: part.Resp.Message.Thinking,
-		}
+		return nil
+	})
+
+	if err := eg.Wait(); err != nil {
+		return llm.ChatMessage{}, err
 	}
 
 	return llmSession.LastMessage(), nil

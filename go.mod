@@ -7,6 +7,7 @@ require (
 	github.com/go-playground/validator/v10 v10.30.2
 	github.com/kelseyhightower/envconfig v1.4.0
 	github.com/stretchr/testify v1.11.1
+	golang.org/x/sync v0.20.0
 )
 
 require (
