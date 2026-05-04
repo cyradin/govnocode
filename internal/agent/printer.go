@@ -55,7 +55,6 @@ func (p *Printer) PrintTaskText(task string) error {
 }
 
 func (p *Printer) PrintLLMResponse(messages <-chan PrinterLLMMessage) error {
-
 	if err := p.printDelimiter(p.out); err != nil {
 		return err
 	}
