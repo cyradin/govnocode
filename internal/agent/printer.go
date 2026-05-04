@@ -55,7 +55,6 @@ func (p *Printer) PrintTaskText(task string) error {
 }
 
 func (p *Printer) PrintLLMResponse(messages <-chan PrinterLLMMessage) error {
-	var thinkingMode = false
 
 	if err := p.printDelimiter(p.out); err != nil {
 		return err
@@ -65,34 +64,52 @@ func (p *Printer) PrintLLMResponse(messages <-chan PrinterLLMMessage) error {
 		return err
 	}
 
+	var (
+		isThinking = false
+		err        error
+	)
+
 	for msg := range messages {
-		if msg.Thinking != "" {
-			if !thinkingMode {
-				if _, err := llmThinkingColor.Fprint(p.out, "Thinking...\n\n"); err != nil {
-					return err
-				}
-
-				thinkingMode = true
-			}
-
-			if _, err := llmThinkingColor.Fprint(p.out, msg.Thinking); err != nil {
-				return err
-			}
+		isThinking, err = p.printLLMThinkingBlock(msg.Thinking, isThinking)
+		if err != nil {
+			return err
 		}
 
-		if msg.Content != "" {
-			if thinkingMode {
-				if _, err := llmThinkingColor.Fprint(p.out, "\n\n"); err != nil {
-					return err
-				}
-
-				thinkingMode = false
-			}
-
-			if _, err := llmMessageColor.Fprint(p.out, msg.Content); err != nil {
-				return err
-			}
+		if err := p.printLLMMessage(msg.Content); err != nil {
+			return err
 		}
+	}
+
+	return nil
+}
+
+func (p *Printer) printLLMThinkingBlock(text string, isThinking bool) (bool, error) {
+	if isThinking && text == "" {
+		if _, err := llmThinkingColor.Fprint(p.out, "\n\n"); err != nil {
+			return false, err
+		}
+
+		return false, nil
+	}
+
+	if !isThinking && text != "" {
+		if _, err := llmThinkingColor.Fprint(p.out, "Thinking...\n\n"); err != nil {
+			return false, err
+		}
+
+		isThinking = true
+	}
+
+	if _, err := llmThinkingColor.Fprint(p.out, text); err != nil {
+		return false, err
+	}
+
+	return isThinking, nil
+}
+
+func (p *Printer) printLLMMessage(text string) error {
+	if _, err := llmMessageColor.Fprint(p.out, text); err != nil {
+		return err
 	}
 
 	return nil
