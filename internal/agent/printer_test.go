@@ -1,6 +1,8 @@
 package agent
 
 import (
+	"errors"
+	"io"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -10,7 +12,7 @@ type fakeWriter struct {
 	data []byte
 }
 
-func TestPrinter_PrintTaskText(t *testing.T) {
+func TestPrinter_PrintUserMessage(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
@@ -22,16 +24,16 @@ func TestPrinter_PrintTaskText(t *testing.T) {
 			name: "simple task",
 			task: "hello task",
 			check: []string{
-				"Task:",
+				"Message:",
 				"hello task",
 				"-------------------------------------------------",
 			},
 		},
 		{
-			name: "empty task",
+			name: "empty message",
 			task: "",
 			check: []string{
-				"Task:",
+				"Message:",
 				"-------------------------------------------------",
 			},
 		},
@@ -44,11 +46,70 @@ func TestPrinter_PrintTaskText(t *testing.T) {
 			w := &fakeWriter{}
 			p := NewPrinter(w)
 
-			err := p.PrintTaskText(tt.task)
+			err := p.PrintUserMessage(tt.task)
 			require.NoError(t, err)
 
 			out := w.String()
 
+			for _, c := range tt.check {
+				require.Contains(t, out, c)
+			}
+		})
+	}
+}
+
+func TestPrinter_PrintError(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name    string
+		err     error
+		wantErr bool
+		check   []string
+		writer  io.Writer
+	}{
+		{
+			name: "simple error",
+			err:  errors.New("something went wrong"),
+			check: []string{
+				"-------------------------------------------------",
+				"Error:",
+				"something went wrong",
+			},
+			writer: &fakeWriter{},
+		},
+		{
+			name: "empty error message",
+			err:  errors.New(""),
+			check: []string{
+				"Error:",
+			},
+			writer: &fakeWriter{},
+		},
+		{
+			name:    "writer error",
+			err:     errors.New("boom"),
+			wantErr: true,
+			writer:  &errorWriter{},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			p := NewPrinter(tt.writer)
+
+			err := p.PrintError(tt.err)
+
+			if tt.wantErr {
+				require.Error(t, err)
+				return
+			}
+
+			require.NoError(t, err)
+
+			out := tt.writer.(*fakeWriter).String()
 			for _, c := range tt.check {
 				require.Contains(t, out, c)
 			}
@@ -146,4 +207,10 @@ func (w *fakeWriter) Write(p []byte) (int, error) {
 
 func (w *fakeWriter) String() string {
 	return string(w.data)
+}
+
+type errorWriter struct{}
+
+func (e *errorWriter) Write(p []byte) (int, error) {
+	return 0, errors.New("write failed")
 }

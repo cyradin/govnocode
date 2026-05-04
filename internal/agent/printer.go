@@ -25,6 +25,7 @@ type Printer struct {
 	taskColor        *color.Color
 	llmThinkingColor *color.Color
 	llmMessageColor  *color.Color
+	errorColor       *color.Color
 }
 
 func NewPrinter(out io.Writer) *Printer {
@@ -35,19 +36,36 @@ func NewPrinter(out io.Writer) *Printer {
 		taskColor:        color.New(color.FgWhite),
 		llmThinkingColor: color.New(color.FgYellow),
 		llmMessageColor:  color.New(color.FgWhite),
+		errorColor:       color.New(color.FgRed),
 	}
 }
 
-func (p *Printer) PrintTaskText(task string) error {
+func (p *Printer) PrintUserMessage(msg string) error {
 	if err := p.printDelimiter(p.out); err != nil {
 		return err
 	}
 
-	if err := p.printHeader(p.out, "Task:"); err != nil {
+	if err := p.printHeader(p.out, "Message:"); err != nil {
 		return err
 	}
 
-	if _, err := taskColor.Fprint(p.out, task, "\n"); err != nil {
+	if _, err := taskColor.Fprint(p.out, msg, "\n"); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (p *Printer) PrintError(err error) error {
+	if err := p.printDelimiter(p.out); err != nil {
+		return err
+	}
+
+	if _, err := p.errorColor.Fprint(p.out, "Error: \n\n"); err != nil {
+		return err
+	}
+
+	if _, err := p.errorColor.Fprint(p.out, err.Error(), "\n"); err != nil {
 		return err
 	}
 
@@ -77,6 +95,10 @@ func (p *Printer) PrintLLMResponse(messages <-chan PrinterLLMMessage) error {
 		if err := p.printLLMMessage(msg.Content); err != nil {
 			return err
 		}
+	}
+
+	if _, err := p.llmMessageColor.Fprint(p.out, "\n"); err != nil {
+		return err
 	}
 
 	return nil
