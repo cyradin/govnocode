@@ -20,7 +20,8 @@ type llmClient interface {
 }
 
 type printer interface {
-	PrintTaskText(task string) error
+	PrintUserMessage(msg string) error
+	PrintError(err error) error
 	PrintLLMResponse(messages <-chan PrinterLLMMessage) error
 }
 
@@ -48,15 +49,64 @@ func (a *CodingAgent) Start(ctx context.Context, task string) error {
 		return fmt.Errorf("make system prompt: %w", err)
 	}
 
-	if err := a.printer.PrintTaskText(task); err != nil {
-		return fmt.Errorf("print task text: %w", err)
-	}
-
 	llmSession := llm.NewSession(a.llmClient, systemPrompt)
 
-	_, err = a.writeMessage(ctx, task, llmSession)
+	return a.startLoop(ctx, task, llmSession)
+}
+
+func (a *CodingAgent) startLoop(ctx context.Context, task string, llmSession *llm.Session) error {
+	var (
+		msg llm.ChatMessage
+		err error
+	)
+
+	msg, err = a.writeMessage(ctx, task, llmSession)
 	if err != nil {
 		return err
+	}
+
+	for {
+		toolCall, err := NewParser(msg.Content).GetTool()
+		if err != nil {
+			if err := a.writeErrorMessage(ctx, err, llmSession); err != nil {
+				return err
+			}
+
+			continue
+		}
+
+		tool, err := a.tools.Get(toolCall.Tool)
+		if err != nil {
+			if err := a.writeErrorMessage(ctx, err, llmSession); err != nil {
+				return err
+			}
+
+			continue
+		}
+
+		res, err := tool.Execute(".", toolCall.Args)
+		if err != nil {
+			if err := a.writeErrorMessage(ctx, err, llmSession); err != nil {
+				return err
+			}
+
+			continue
+		}
+
+		msg, err = a.writeMessage(ctx, a.toolCallResultPrompt(res), llmSession)
+		if err != nil {
+			return err
+		}
+	}
+}
+
+func (a *CodingAgent) writeErrorMessage(ctx context.Context, err error, llmSession *llm.Session) error {
+	if err := a.printer.PrintError(err); err != nil {
+		return fmt.Errorf("print error message: %w", err)
+	}
+
+	if _, err := a.writeMessage(ctx, a.errorPrompt(err), llmSession); err != nil {
+		return fmt.Errorf("write error message: %w", err)
 	}
 
 	return nil
@@ -64,6 +114,10 @@ func (a *CodingAgent) Start(ctx context.Context, task string) error {
 
 func (a *CodingAgent) writeMessage(ctx context.Context, text string, llmSession *llm.Session) (llm.ChatMessage, error) {
 	printerCh := make(chan PrinterLLMMessage)
+
+	if err := a.printer.PrintUserMessage(text); err != nil {
+		return llm.ChatMessage{}, fmt.Errorf("print user message: %w", err)
+	}
 
 	eg := errgroup.Group{}
 
@@ -111,6 +165,14 @@ func (a *CodingAgent) systemPrompt() (string, error) {
 	return fmt.Sprintf(codingAgentSystemPrompt, string(toolsRaw)), nil
 }
 
+func (a *CodingAgent) errorPrompt(err error) string {
+	return fmt.Sprintf(codingAgentErrorPrompt, err.Error())
+}
+
+func (a *CodingAgent) toolCallResultPrompt(res tools.Result) string {
+	return fmt.Sprintf(ccodingAgentToolCallResultPrompt, res.Stdout)
+}
+
 const codingAgentSystemPrompt = `
 <instructions>
 You are an autonomous Go coding agent.
@@ -147,4 +209,60 @@ If the task is finished → output final answer.
 <tools>
 %s
 </tools>
+`
+
+const codingAgentErrorPrompt = `
+Your previous response was invalid:
+
+<error>
+%s
+</error>
+
+Fix it.
+
+<rules>
+Rules:
+- Output ONLY valid tool call JSON
+- No explanations
+- No thinking
+- No markdown
+- No extra text before or after JSON
+- Must strictly follow format:
+  {
+    "tool": "<tool_code>",
+    "args": { }
+  }
+</rules>
+Return a corrected response.`
+
+const ccodingAgentToolCallResultPrompt = `<instruction>
+You are working in an autonomous coding agent loop.
+
+You receive the STDOUT output from a previously executed tool.
+
+Your task:
+- Use this output to continue solving the task
+- Decide the next action (tool call or final answer)
+
+</instruction>
+
+<stdout>
+%s
+</stdout>
+
+<rules>
+- Output ONLY one of:
+  1) tool call JSON
+  2) final answer JSON
+- No explanations
+- No thinking
+- No markdown
+- No extra text
+
+Tool call format:
+{
+  "tool": "<tool_code>",
+  "args": { }
+}
+</rules>
 `

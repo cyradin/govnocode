@@ -109,7 +109,9 @@ func TestPrinter_PrintError(t *testing.T) {
 
 			require.NoError(t, err)
 
-			out := tt.writer.(*fakeWriter).String()
+			ww, _ := tt.writer.(*fakeWriter)
+			out := ww.String()
+
 			for _, c := range tt.check {
 				require.Contains(t, out, c)
 			}
