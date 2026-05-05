@@ -2,8 +2,13 @@ package main
 
 import (
 	"context"
+	"flag"
+	"fmt"
 	"log"
+	"log/slog"
+	"os"
 	"os/signal"
+	"path/filepath"
 	"syscall"
 
 	"github.com/cyradin/govnocode/internal/config"
@@ -13,7 +18,27 @@ import (
 
 var GitCommit string = "dev"
 
+var (
+	projectRootFlag = flag.String(
+		"project-root",
+		".",
+		"Path to the project root directory where the agent will run (must exist)",
+	)
+
+	taskFlag = flag.String(
+		"task",
+		"",
+		"Task description for the agent (required)",
+	)
+)
+
 func main() {
+	flag.Parse()
+
+	if err := validateFlags(); err != nil {
+		log.Fatalf("invalid flags: %v", err)
+	}
+
 	cfg, err := config.New()
 	if err != nil {
 		log.Fatal(err)
@@ -32,14 +57,18 @@ func run(_ *config.Config, container *container.Container) error {
 
 	ctx = logger.WithContext(ctx, container.Logger())
 
-	errCh := make(chan error, 1)
+	absPath, err := filepath.Abs(*projectRootFlag)
+	if err != nil {
+		return fmt.Errorf("get absolute path: %w", err)
+	}
 
+	errCh := make(chan error, 1)
 	agent := container.CodingAgent()
 
 	go func() {
-		logger.FromContext(ctx).Info("app started")
+		logger.FromContext(ctx).Info("running code agent", slog.String("project_root", absPath))
 
-		errCh <- agent.Start(ctx, "The task is to implement simple Go HTTP server with a few endpoints")
+		errCh <- agent.Start(ctx, absPath, *taskFlag)
 	}()
 
 	select {
@@ -48,4 +77,25 @@ func run(_ *config.Config, container *container.Container) error {
 	case err := <-errCh:
 		return err
 	}
+}
+
+func validateFlags() error {
+	if *taskFlag == "" {
+		return fmt.Errorf("flag -task is required")
+	}
+
+	info, err := os.Stat(*projectRootFlag)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return fmt.Errorf("project root does not exist: %s", *projectRootFlag)
+		}
+
+		return fmt.Errorf("cannot access project root: %w", err)
+	}
+
+	if !info.IsDir() {
+		return fmt.Errorf("project root is not a directory: %s", *projectRootFlag)
+	}
+
+	return nil
 }

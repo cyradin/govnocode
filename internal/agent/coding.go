@@ -43,7 +43,7 @@ func NewCoding(
 	}
 }
 
-func (a *CodingAgent) Start(ctx context.Context, task string) error {
+func (a *CodingAgent) Start(ctx context.Context, dir string, task string) error {
 	systemPrompt, err := a.systemPrompt()
 	if err != nil {
 		return fmt.Errorf("make system prompt: %w", err)
