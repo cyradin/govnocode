@@ -6,6 +6,7 @@ import (
 
 	"github.com/cyradin/govnocode/internal/agent"
 	"github.com/cyradin/govnocode/internal/llm"
+	"github.com/cyradin/govnocode/tools"
 )
 
 func (c *Container) Printer() *agent.Printer {
@@ -17,15 +18,19 @@ func (c *Container) Printer() *agent.Printer {
 }
 
 func (c *Container) CodingAgent() *agent.CodingAgent {
-	if c.agent == nil {
-		c.agent = agent.NewCoding(
+	if c.codingAgent == nil {
+		toolRegistry := c.NewToolRegistry().
+			MustRegister(tools.Git()...).
+			MustRegister(tools.Filesystem()...)
+
+		c.codingAgent = agent.NewCoding(
 			c.Printer(),
 			c.OllamaClient(),
-			c.ToolRegistry(),
+			toolRegistry,
 		)
 	}
 
-	return c.agent
+	return c.codingAgent
 }
 
 func (c *Container) OllamaClient() *llm.OllamaClient {

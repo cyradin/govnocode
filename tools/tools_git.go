@@ -7,6 +7,21 @@ import (
 
 const gitCommand = "git"
 
+func Git() []Tool {
+	return []Tool{
+		NewGitInit(),
+		NewGitCreateBranch(),
+		NewGitCheckout(),
+		NewGitStatus(),
+		NewGitAdd(),
+		NewGitCommit(),
+		NewGitPush(),
+		NewGitPull(),
+		NewGitFetch(),
+		NewGitBranchList(),
+	}
+}
+
 type GitInit struct {
 	command string
 	args    []string

@@ -7,6 +7,17 @@ import (
 	"strings"
 )
 
+func Filesystem() []Tool {
+	return []Tool{
+		NewFileRead(),
+		NewFileWrite(),
+		NewFileDelete(),
+		NewDirList(),
+		NewMkdir(),
+		NewFileMove(),
+	}
+}
+
 type fileReadArgs struct {
 	Path string `json:"path" validate:"required"`
 }

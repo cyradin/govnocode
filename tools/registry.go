@@ -74,6 +74,14 @@ func (r *Registry) Register(tools ...Tool) error {
 	return nil
 }
 
+func (r *Registry) MustRegister(tools ...Tool) *Registry {
+	if err := r.Register(tools...); err != nil {
+		panic(err)
+	}
+
+	return r
+}
+
 func runCommand(cmd *exec.Cmd, dir string) (Result, error) {
 	var (
 		stdout bytes.Buffer
