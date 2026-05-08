@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/cyradin/govnocode/internal/command"
+	"github.com/cyradin/govnocode/tools/executor"
 	"github.com/stretchr/testify/require"
 )
 
@@ -16,7 +16,7 @@ func TestMove_Execute(t *testing.T) {
 		t.Parallel()
 
 		tmpDir := t.TempDir()
-		e := command.NewShellExecutor(tmpDir)
+		e := executor.NewShell(tmpDir)
 
 		oldPath := filepath.Join(tmpDir, "old.txt")
 
@@ -47,7 +47,7 @@ func TestMove_Execute(t *testing.T) {
 		t.Parallel()
 
 		tmpDir := t.TempDir()
-		e := command.NewShellExecutor(tmpDir)
+		e := executor.NewShell(tmpDir)
 
 		require.NoError(
 			t,
@@ -70,7 +70,7 @@ func TestMove_Execute(t *testing.T) {
 		t.Parallel()
 
 		tmpDir := t.TempDir()
-		e := command.NewShellExecutor(tmpDir)
+		e := executor.NewShell(tmpDir)
 
 		res, err := NewMove().Execute(
 			t.Context(),
@@ -87,7 +87,7 @@ func TestMove_Execute(t *testing.T) {
 		t.Parallel()
 
 		tmpDir := t.TempDir()
-		e := command.NewShellExecutor(tmpDir)
+		e := executor.NewShell(tmpDir)
 
 		_, err := NewMove().Execute(
 			t.Context(),
@@ -102,7 +102,7 @@ func TestMove_Execute(t *testing.T) {
 		t.Parallel()
 
 		tmpDir := t.TempDir()
-		e := command.NewShellExecutor(tmpDir)
+		e := executor.NewShell(tmpDir)
 
 		_, err := NewMove().Execute(
 			t.Context(),

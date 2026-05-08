@@ -3,7 +3,7 @@ package git
 import (
 	"testing"
 
-	"github.com/cyradin/govnocode/internal/command"
+	"github.com/cyradin/govnocode/tools/executor"
 	"github.com/stretchr/testify/require"
 )
 
@@ -14,7 +14,7 @@ func TestFetch_Execute(t *testing.T) {
 		t.Parallel()
 
 		tmpDir := t.TempDir()
-		e := command.NewShellExecutor(tmpDir)
+		e := executor.NewShell(tmpDir)
 
 		_, err := e.Execute(t.Context(), []string{"git", "-C", tmpDir, "init"}, nil)
 		require.NoError(t, err)

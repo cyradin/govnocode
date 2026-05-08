@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/cyradin/govnocode/internal/command"
+	"github.com/cyradin/govnocode/tools/executor"
 )
 
 type DeleteArgs struct {
@@ -19,15 +19,15 @@ func NewDelete() *Delete {
 
 func (f *Delete) Execute(
 	ctx context.Context,
-	executor command.Executor,
+	e executor.Executor,
 	raw []byte,
-) (command.Result, error) {
+) (executor.Result, error) {
 	a, err := parseArgs[DeleteArgs](raw)
 	if err != nil {
-		return command.Result{}, fmt.Errorf("parse args: %w", err)
+		return executor.Result{}, fmt.Errorf("parse args: %w", err)
 	}
 
-	return executor.Execute(
+	return e.Execute(
 		ctx,
 		[]string{
 			"rm",

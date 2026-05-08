@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/cyradin/govnocode/internal/command"
+	"github.com/cyradin/govnocode/tools/executor"
 	"github.com/stretchr/testify/require"
 )
 
@@ -16,7 +16,7 @@ func TestMkdir_Execute(t *testing.T) {
 		t.Parallel()
 
 		tmpDir := t.TempDir()
-		e := command.NewShellExecutor(tmpDir)
+		e := executor.NewShell(tmpDir)
 
 		res, err := NewMkdir().Execute(
 			t.Context(),
@@ -36,7 +36,7 @@ func TestMkdir_Execute(t *testing.T) {
 		t.Parallel()
 
 		tmpDir := t.TempDir()
-		e := command.NewShellExecutor(tmpDir)
+		e := executor.NewShell(tmpDir)
 
 		_, err := NewMkdir().Execute(
 			t.Context(),
@@ -55,7 +55,7 @@ func TestMkdir_Execute(t *testing.T) {
 		t.Parallel()
 
 		tmpDir := t.TempDir()
-		e := command.NewShellExecutor(tmpDir)
+		e := executor.NewShell(tmpDir)
 
 		_, err := NewMkdir().Execute(
 			t.Context(),
@@ -70,7 +70,7 @@ func TestMkdir_Execute(t *testing.T) {
 		t.Parallel()
 
 		tmpDir := t.TempDir()
-		e := command.NewShellExecutor(tmpDir)
+		e := executor.NewShell(tmpDir)
 
 		require.NoError(
 			t,

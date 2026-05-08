@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/cyradin/govnocode/internal/command"
+	"github.com/cyradin/govnocode/tools/executor"
 )
 
 type PushArgs struct {
@@ -20,15 +20,15 @@ func NewPush() *Push {
 
 func (g *Push) Execute(
 	ctx context.Context,
-	executor command.Executor,
+	e executor.Executor,
 	raw []byte,
-) (command.Result, error) {
+) (executor.Result, error) {
 	a, err := parseArgs[PushArgs](raw)
 	if err != nil {
-		return command.Result{}, fmt.Errorf("parse args: %w", err)
+		return executor.Result{}, fmt.Errorf("parse args: %w", err)
 	}
 
-	return executor.Execute(ctx, []string{
+	return e.Execute(ctx, []string{
 		"git",
 		"push",
 		"-u",

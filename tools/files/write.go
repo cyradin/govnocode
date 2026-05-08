@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/cyradin/govnocode/internal/command"
+	"github.com/cyradin/govnocode/tools/executor"
 )
 
 type WriteArgs struct {
@@ -21,15 +21,15 @@ func NewWrite() *Write {
 
 func (f *Write) Execute(
 	ctx context.Context,
-	executor command.Executor,
+	e executor.Executor,
 	raw []byte,
-) (command.Result, error) {
+) (executor.Result, error) {
 	a, err := parseArgs[WriteArgs](raw)
 	if err != nil {
-		return command.Result{}, fmt.Errorf("parse args: %w", err)
+		return executor.Result{}, fmt.Errorf("parse args: %w", err)
 	}
 
-	return executor.Execute(
+	return e.Execute(
 		ctx,
 		[]string{
 			"tee",

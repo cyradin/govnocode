@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/cyradin/govnocode/internal/command"
+	"github.com/cyradin/govnocode/tools/executor"
 )
 
 type MoveArgs struct {
@@ -20,15 +20,15 @@ func NewMove() *Move {
 
 func (m *Move) Execute(
 	ctx context.Context,
-	executor command.Executor,
+	e executor.Executor,
 	raw []byte,
-) (command.Result, error) {
+) (executor.Result, error) {
 	a, err := parseArgs[MoveArgs](raw)
 	if err != nil {
-		return command.Result{}, fmt.Errorf("parse args: %w", err)
+		return executor.Result{}, fmt.Errorf("parse args: %w", err)
 	}
 
-	return executor.Execute(
+	return e.Execute(
 		ctx,
 		[]string{
 			"mv",

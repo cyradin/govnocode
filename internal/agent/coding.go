@@ -9,6 +9,7 @@ import (
 	"github.com/cyradin/govnocode/internal/command"
 	"github.com/cyradin/govnocode/internal/llm"
 	"github.com/cyradin/govnocode/tools"
+	"github.com/cyradin/govnocode/tools/executor"
 	"golang.org/x/sync/errgroup"
 )
 
@@ -63,14 +64,14 @@ func (a *CodingAgent) Start(ctx context.Context, dir string, task string) error 
 
 	a.logger.InfoContext(ctx, "docker container started")
 
-	executor := command.NewDockerExecutor(container)
+	executor := executor.NewDocker(container)
 
 	llmSession := llm.NewSession(a.llmClient, systemPrompt)
 
 	return a.startLoop(ctx, task, executor, llmSession)
 }
 
-func (a *CodingAgent) startLoop(ctx context.Context, task string, executor *command.DockerExecutor, llmSession *llm.Session) error {
+func (a *CodingAgent) startLoop(ctx context.Context, task string, executor *executor.Docker, llmSession *llm.Session) error {
 	var (
 		msg llm.ChatMessage
 		err error
@@ -185,8 +186,8 @@ func (a *CodingAgent) errorPrompt(err error) string {
 	return fmt.Sprintf(codingAgentErrorPrompt, err.Error())
 }
 
-func (a *CodingAgent) toolCallResultPrompt(res command.Result) string {
-	return fmt.Sprintf(ccodingAgentToolCallResultPrompt, res.Stdout)
+func (a *CodingAgent) toolCallResultPrompt(res executor.Result) string {
+	return fmt.Sprintf(codingAgentToolCallResultPrompt, res.Stdout)
 }
 
 const codingAgentSystemPrompt = `
@@ -251,7 +252,7 @@ Rules:
 </rules>
 Return a corrected response.`
 
-const ccodingAgentToolCallResultPrompt = `<instruction>
+const codingAgentToolCallResultPrompt = `<instruction>
 You are working in an autonomous coding agent loop.
 
 You receive the STDOUT output from a previously executed tool.

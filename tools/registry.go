@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/cyradin/govnocode/internal/command"
+	"github.com/cyradin/govnocode/tools/executor"
 )
 
 var (
@@ -20,7 +20,7 @@ type Spec struct {
 }
 
 type toolExecutor interface {
-	Execute(ctx context.Context, executor command.Executor, args []byte) (command.Result, error)
+	Execute(ctx context.Context, executor executor.Executor, args []byte) (executor.Result, error)
 }
 
 type Tool struct {
@@ -39,7 +39,7 @@ func (t *Tool) Spec() Spec {
 	return t.spec
 }
 
-func (t *Tool) Execute(ctx context.Context, executor command.Executor, args []byte) (command.Result, error) {
+func (t *Tool) Execute(ctx context.Context, executor executor.Executor, args []byte) (executor.Result, error) {
 	return t.inner.Execute(ctx, executor, args)
 }
 

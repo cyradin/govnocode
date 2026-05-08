@@ -1,4 +1,4 @@
-package command
+package executor
 
 import (
 	"bytes"
@@ -11,24 +11,24 @@ import (
 	tcexec "github.com/testcontainers/testcontainers-go/exec"
 )
 
-var _ Executor = (*DockerExecutor)(nil)
+var _ Executor = (*Docker)(nil)
 
 type Result struct {
 	Stdout string
 	Stderr string
 }
 
-type DockerExecutor struct {
+type Docker struct {
 	container testcontainers.Container
 }
 
-func NewDockerExecutor(container testcontainers.Container) *DockerExecutor {
-	return &DockerExecutor{
+func NewDocker(container testcontainers.Container) *Docker {
+	return &Docker{
 		container: container,
 	}
 }
 
-func (e *DockerExecutor) Execute(
+func (e *Docker) Execute(
 	ctx context.Context,
 	cmd []string,
 	stdin io.Reader,

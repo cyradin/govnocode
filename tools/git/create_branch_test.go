@@ -3,7 +3,7 @@ package git
 import (
 	"testing"
 
-	"github.com/cyradin/govnocode/internal/command"
+	"github.com/cyradin/govnocode/tools/executor"
 	"github.com/stretchr/testify/require"
 )
 
@@ -14,7 +14,7 @@ func TestCreateBranch_Execute(t *testing.T) {
 		t.Parallel()
 
 		tmpDir := t.TempDir()
-		exec := command.NewShellExecutor(tmpDir)
+		exec := executor.NewShell(tmpDir)
 
 		initRepo(t, tmpDir, exec)
 
@@ -34,7 +34,7 @@ func TestCreateBranch_Execute(t *testing.T) {
 		t.Parallel()
 
 		tmpDir := t.TempDir()
-		exec := command.NewShellExecutor(tmpDir)
+		exec := executor.NewShell(tmpDir)
 
 		initRepo(t, tmpDir, exec)
 

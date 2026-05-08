@@ -1,4 +1,4 @@
-package command
+package executor
 
 import (
 	"bytes"
@@ -12,23 +12,23 @@ type Executor interface {
 	Execute(ctx context.Context, args []string, stdin io.Reader) (Result, error)
 }
 
-var _ Executor = (*ShellExecutor)(nil)
+var _ Executor = (*Shell)(nil)
 
 var (
 	ErrRunCommand = fmt.Errorf("run command")
 )
 
-type ShellExecutor struct {
+type Shell struct {
 	dir string
 }
 
-func NewShellExecutor(dir string) *ShellExecutor {
-	return &ShellExecutor{
+func NewShell(dir string) *Shell {
+	return &Shell{
 		dir: dir,
 	}
 }
 
-func (c *ShellExecutor) Execute(ctx context.Context, args []string, stdin io.Reader) (Result, error) {
+func (c *Shell) Execute(ctx context.Context, args []string, stdin io.Reader) (Result, error) {
 	var (
 		stdout bytes.Buffer
 		stderr bytes.Buffer

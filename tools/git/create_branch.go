@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/cyradin/govnocode/internal/command"
+	"github.com/cyradin/govnocode/tools/executor"
 	"github.com/go-playground/validator/v10"
 )
 
@@ -21,15 +21,15 @@ func NewCreateBranch() *CreateBranch {
 
 func (g *CreateBranch) Execute(
 	ctx context.Context,
-	executor command.Executor,
+	e executor.Executor,
 	raw []byte,
-) (command.Result, error) {
+) (executor.Result, error) {
 	a, err := parseArgs[CreateBranchArgs](raw)
 	if err != nil {
-		return command.Result{}, fmt.Errorf("parse args: %w", err)
+		return executor.Result{}, fmt.Errorf("parse args: %w", err)
 	}
 
-	return executor.Execute(ctx, []string{
+	return e.Execute(ctx, []string{
 		"git",
 		"checkout",
 		"-b",

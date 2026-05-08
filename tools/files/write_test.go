@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/cyradin/govnocode/internal/command"
+	"github.com/cyradin/govnocode/tools/executor"
 	"github.com/stretchr/testify/require"
 )
 
@@ -16,7 +16,7 @@ func TestWrite_Execute(t *testing.T) {
 		t.Parallel()
 
 		tmpDir := t.TempDir()
-		e := command.NewShellExecutor(tmpDir)
+		e := executor.NewShell(tmpDir)
 
 		res, err := NewWrite().Execute(
 			t.Context(),
@@ -37,7 +37,7 @@ func TestWrite_Execute(t *testing.T) {
 		t.Parallel()
 
 		tmpDir := t.TempDir()
-		e := command.NewShellExecutor(tmpDir)
+		e := executor.NewShell(tmpDir)
 
 		path := filepath.Join(tmpDir, "a.txt")
 
@@ -64,7 +64,7 @@ func TestWrite_Execute(t *testing.T) {
 		t.Parallel()
 
 		tmpDir := t.TempDir()
-		e := command.NewShellExecutor(tmpDir)
+		e := executor.NewShell(tmpDir)
 
 		_, err := NewWrite().Execute(
 			t.Context(),
@@ -84,7 +84,7 @@ func TestWrite_Execute(t *testing.T) {
 		t.Parallel()
 
 		tmpDir := t.TempDir()
-		e := command.NewShellExecutor(tmpDir)
+		e := executor.NewShell(tmpDir)
 
 		_, err := NewWrite().Execute(
 			t.Context(),
@@ -99,7 +99,7 @@ func TestWrite_Execute(t *testing.T) {
 		t.Parallel()
 
 		tmpDir := t.TempDir()
-		e := command.NewShellExecutor(tmpDir)
+		e := executor.NewShell(tmpDir)
 
 		res, err := NewWrite().Execute(
 			t.Context(),
@@ -116,7 +116,7 @@ func TestWrite_Execute(t *testing.T) {
 		t.Parallel()
 
 		tmpDir := t.TempDir()
-		e := command.NewShellExecutor(tmpDir)
+		e := executor.NewShell(tmpDir)
 
 		content := "line1\nline2\nline3"
 

@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/cyradin/govnocode/internal/command"
+	"github.com/cyradin/govnocode/tools/executor"
 )
 
 type DirListArgs struct {
@@ -19,12 +19,12 @@ func NewDirList() *DirList {
 
 func (d *DirList) Execute(
 	ctx context.Context,
-	executor command.Executor,
+	e executor.Executor,
 	raw []byte,
-) (command.Result, error) {
+) (executor.Result, error) {
 	a, err := parseArgs[DirListArgs](raw)
 	if err != nil {
-		return command.Result{}, fmt.Errorf("parse args: %w", err)
+		return executor.Result{}, fmt.Errorf("parse args: %w", err)
 	}
 
 	path := "."
@@ -32,7 +32,7 @@ func (d *DirList) Execute(
 		path = a.Path
 	}
 
-	return executor.Execute(ctx, []string{
+	return e.Execute(ctx, []string{
 		"ls",
 		"-1",
 		path,

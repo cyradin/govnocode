@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/cyradin/govnocode/internal/command"
+	"github.com/cyradin/govnocode/tools/executor"
 	"github.com/stretchr/testify/require"
 )
 
@@ -16,7 +16,7 @@ func TestDelete_Execute(t *testing.T) {
 		t.Parallel()
 
 		tmpDir := t.TempDir()
-		e := command.NewShellExecutor(tmpDir)
+		e := executor.NewShell(tmpDir)
 
 		path := filepath.Join(tmpDir, "a.txt")
 
@@ -42,7 +42,7 @@ func TestDelete_Execute(t *testing.T) {
 		t.Parallel()
 
 		tmpDir := t.TempDir()
-		e := command.NewShellExecutor(tmpDir)
+		e := executor.NewShell(tmpDir)
 
 		res, err := NewDelete().Execute(
 			t.Context(),
@@ -58,7 +58,7 @@ func TestDelete_Execute(t *testing.T) {
 		t.Parallel()
 
 		tmpDir := t.TempDir()
-		e := command.NewShellExecutor(tmpDir)
+		e := executor.NewShell(tmpDir)
 
 		_, err := NewDelete().Execute(
 			t.Context(),
@@ -73,7 +73,7 @@ func TestDelete_Execute(t *testing.T) {
 		t.Parallel()
 
 		tmpDir := t.TempDir()
-		e := command.NewShellExecutor(tmpDir)
+		e := executor.NewShell(tmpDir)
 
 		dir := filepath.Join(tmpDir, "dir")
 

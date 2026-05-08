@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/cyradin/govnocode/internal/command"
+	"github.com/cyradin/govnocode/tools/executor"
 	"github.com/stretchr/testify/require"
 )
 
@@ -16,7 +16,7 @@ func TestRead_Execute(t *testing.T) {
 		t.Parallel()
 
 		tmpDir := t.TempDir()
-		e := command.NewShellExecutor(tmpDir)
+		e := executor.NewShell(tmpDir)
 
 		file := filepath.Join(tmpDir, "a.txt")
 		require.NoError(t, os.WriteFile(file, []byte("hello"), 0644))
@@ -32,7 +32,7 @@ func TestRead_Execute(t *testing.T) {
 		t.Parallel()
 
 		tmpDir := t.TempDir()
-		e := command.NewShellExecutor(tmpDir)
+		e := executor.NewShell(tmpDir)
 
 		res, err := NewRead().Execute(t.Context(), e, []byte(`{"path":"qwerty"}`))
 		require.Contains(t, res.Stderr, "No such file or directory")
@@ -43,7 +43,7 @@ func TestRead_Execute(t *testing.T) {
 		t.Parallel()
 
 		tmpDir := t.TempDir()
-		e := command.NewShellExecutor(tmpDir)
+		e := executor.NewShell(tmpDir)
 
 		_, err := NewRead().Execute(t.Context(), e, []byte(`{"path":""}`))
 		require.Error(t, err)

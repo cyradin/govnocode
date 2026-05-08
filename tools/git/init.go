@@ -3,7 +3,7 @@ package git
 import (
 	"context"
 
-	"github.com/cyradin/govnocode/internal/command"
+	"github.com/cyradin/govnocode/tools/executor"
 )
 
 type Init struct{}
@@ -14,10 +14,10 @@ func NewInit() *Init {
 
 func (g *Init) Execute(
 	ctx context.Context,
-	executor command.Executor,
+	e executor.Executor,
 	args []byte,
-) (command.Result, error) {
-	return executor.Execute(ctx, []string{
+) (executor.Result, error) {
+	return e.Execute(ctx, []string{
 		"git",
 		"init",
 	}, nil)

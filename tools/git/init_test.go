@@ -6,7 +6,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/cyradin/govnocode/internal/command"
+	"github.com/cyradin/govnocode/tools/executor"
 	"github.com/stretchr/testify/require"
 )
 
@@ -21,7 +21,7 @@ func TestInit_Execute(t *testing.T) {
 		t.Parallel()
 
 		tmpDir := t.TempDir()
-		executor := command.NewShellExecutor(tmpDir)
+		executor := executor.NewShell(tmpDir)
 
 		tool := NewInit()
 
@@ -40,7 +40,7 @@ func TestInit_Execute(t *testing.T) {
 		t.Parallel()
 
 		tmpDir := t.TempDir()
-		executor := command.NewShellExecutor(tmpDir)
+		executor := executor.NewShell(tmpDir)
 
 		tool := NewInit()
 
@@ -56,14 +56,14 @@ func TestInit_Execute(t *testing.T) {
 
 		tool := NewInit()
 
-		executor := command.NewShellExecutor("/non/existent/dir")
+		executor := executor.NewShell("/non/existent/dir")
 
 		_, err := tool.Execute(t.Context(), executor, nil)
 		require.Error(t, err)
 	})
 }
 
-func initRepo(t *testing.T, dir string, executor command.Executor) {
+func initRepo(t *testing.T, dir string, executor executor.Executor) {
 	t.Helper()
 
 	_, _ = executor.Execute(t.Context(), []string{"git", "-C", dir, "init"}, nil)

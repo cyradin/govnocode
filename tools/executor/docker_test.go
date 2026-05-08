@@ -1,4 +1,4 @@
-package command
+package executor
 
 import (
 	"context"
@@ -6,15 +6,35 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/cyradin/govnocode/internal/command"
 	"github.com/stretchr/testify/suite"
 	"github.com/testcontainers/testcontainers-go"
 )
 
+func (s *DockerSuite) TestDocker_Execute() {
+	out, err := s.exec.Execute(s.ctx, []string{
+		"sh", "-c", "echo hello",
+	}, nil)
+
+	s.Require().NoError(err)
+	s.Require().Equal("hello\n", out.Stdout)
+}
+
+func (s *DockerSuite) TestDocker_ExecuteFail() {
+	_, err := s.exec.Execute(s.ctx, []string{
+		"sh", "-c", "exit 42",
+	}, nil)
+
+	s.Require().Error(err)
+	s.Require().Contains(err.Error(), "exit code 42")
+}
+
 type DockerSuite struct {
 	suite.Suite
 
-	ctx context.Context //nolint:containedctx
-	c   testcontainers.Container
+	ctx  context.Context //nolint:containedctx
+	c    testcontainers.Container
+	exec *Docker
 
 	hostFile string
 }
@@ -29,7 +49,7 @@ func (s *DockerSuite) SetupSuite() {
 	err := os.WriteFile(s.hostFile, []byte("initial"), 0644)
 	s.Require().NoError(err)
 
-	c, err := NewDockerBuilder().
+	c, err := command.NewDockerBuilder().
 		WithWorkdir("/app").
 		WithMount(s.hostFile, "/app/hello.txt").
 		WithCmd([]string{"sleep", "infinity"}).
@@ -38,6 +58,7 @@ func (s *DockerSuite) SetupSuite() {
 	s.Require().NoError(err)
 
 	s.c = c
+	s.exec = NewDocker(c)
 }
 
 func (s *DockerSuite) TearDownSuite() {
@@ -50,18 +71,4 @@ func TestDockerSuite(t *testing.T) {
 	t.Parallel()
 
 	suite.Run(t, new(DockerSuite))
-}
-
-func (s *DockerSuite) TestDockerBuilder_BuildImage() {
-	exitCode, _, err := s.c.Exec(s.ctx, []string{
-		"sh", "-c", "echo changed > /app/hello.txt",
-	})
-
-	s.Require().NoError(err)
-	s.Require().Equal(0, exitCode)
-
-	content, err := os.ReadFile(s.hostFile)
-	s.Require().NoError(err)
-
-	s.Require().Equal("changed\n", string(content))
 }
