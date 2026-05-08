@@ -72,17 +72,13 @@ func (a *CodingAgent) Start(ctx context.Context, dir string, task string) error 
 }
 
 func (a *CodingAgent) startLoop(ctx context.Context, task string, executor *executor.Docker, llmSession *llm.Session) error {
-	var (
-		msg llm.ChatMessage
-		err error
-	)
-
-	msg, err = a.writeMessage(ctx, task, llmSession)
-	if err != nil {
+	if err := a.writeMessage(ctx, task, llmSession); err != nil {
 		return err
 	}
 
 	for {
+		msg := llmSession.LastMessage()
+
 		toolCall, err := NewParser(msg.Content).GetTool()
 		if err != nil {
 			if err := a.writeErrorMessage(ctx, err, llmSession); err != nil {
@@ -110,8 +106,7 @@ func (a *CodingAgent) startLoop(ctx context.Context, task string, executor *exec
 			continue
 		}
 
-		msg, err = a.writeMessage(ctx, a.toolCallResultPrompt(res), llmSession)
-		if err != nil {
+		if err := a.writeMessage(ctx, a.toolCallResultPrompt(res), llmSession); err != nil {
 			return err
 		}
 	}
@@ -122,18 +117,18 @@ func (a *CodingAgent) writeErrorMessage(ctx context.Context, err error, llmSessi
 		return fmt.Errorf("print error message: %w", err)
 	}
 
-	if _, err := a.writeMessage(ctx, a.errorPrompt(err), llmSession); err != nil {
+	if err := a.writeMessage(ctx, a.errorPrompt(err), llmSession); err != nil {
 		return fmt.Errorf("write error message: %w", err)
 	}
 
 	return nil
 }
 
-func (a *CodingAgent) writeMessage(ctx context.Context, text string, llmSession *llm.Session) (llm.ChatMessage, error) {
+func (a *CodingAgent) writeMessage(ctx context.Context, text string, llmSession *llm.Session) error {
 	printerCh := make(chan PrinterLLMMessage)
 
 	if err := a.printer.PrintUserMessage(text); err != nil {
-		return llm.ChatMessage{}, fmt.Errorf("print user message: %w", err)
+		return fmt.Errorf("print user message: %w", err)
 	}
 
 	eg := errgroup.Group{}
@@ -160,10 +155,10 @@ func (a *CodingAgent) writeMessage(ctx context.Context, text string, llmSession 
 	})
 
 	if err := eg.Wait(); err != nil {
-		return llm.ChatMessage{}, err
+		return err
 	}
 
-	return llmSession.LastMessage(), nil
+	return nil
 }
 
 func (a *CodingAgent) systemPrompt() (string, error) {
