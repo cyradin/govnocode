@@ -1,12 +1,10 @@
 package tools
 
 import (
-	"bytes"
-	"encoding/json"
+	"context"
 	"fmt"
-	"os/exec"
 
-	"github.com/go-playground/validator/v10"
+	"github.com/cyradin/govnocode/internal/command"
 )
 
 var (
@@ -15,34 +13,47 @@ var (
 	ErrRunCommand        = fmt.Errorf("run command")
 )
 
-type Result struct {
-	Stdout string
-	StdErr string
-}
-
 type Spec struct {
 	Code        string `json:"code"`
 	Description string `json:"description"`
 	Args        any    `json:"args,omitempty"`
 }
 
-type Tool interface {
-	Code() string
-	Spec() Spec
-	Execute(dir string, args []byte) (Result, error)
+type toolExecutor interface {
+	Execute(ctx context.Context, executor command.Executor, args []byte) (command.Result, error)
+}
+
+type Tool struct {
+	spec  Spec
+	inner toolExecutor
+}
+
+func NewTool(inner toolExecutor, spec Spec) *Tool {
+	return &Tool{
+		spec:  spec,
+		inner: inner,
+	}
+}
+
+func (t *Tool) Spec() Spec {
+	return t.spec
+}
+
+func (t *Tool) Execute(ctx context.Context, executor command.Executor, args []byte) (command.Result, error) {
+	return t.inner.Execute(ctx, executor, args)
 }
 
 type Registry struct {
-	tools map[string]Tool
+	tools map[string]*Tool
 }
 
 func NewRegistry() *Registry {
 	return &Registry{
-		tools: make(map[string]Tool),
+		tools: make(map[string]*Tool),
 	}
 }
 
-func (r *Registry) Get(code string) (Tool, error) {
+func (r *Registry) Get(code string) (*Tool, error) {
 	tool, ok := r.tools[code]
 	if !ok {
 		return nil, fmt.Errorf("%w: %s", ErrNotFound, code)
@@ -51,8 +62,8 @@ func (r *Registry) Get(code string) (Tool, error) {
 	return tool, nil
 }
 
-func (r *Registry) All() []Tool {
-	result := make([]Tool, 0, len(r.tools))
+func (r *Registry) All() []*Tool {
+	result := make([]*Tool, 0, len(r.tools))
 
 	for _, tool := range r.tools {
 		result = append(result, tool)
@@ -61,62 +72,25 @@ func (r *Registry) All() []Tool {
 	return result
 }
 
-func (r *Registry) Register(tools ...Tool) error {
+func (r *Registry) Register(tools ...*Tool) error {
 	for _, tool := range tools {
-		_, ok := r.tools[tool.Code()]
+		code := tool.Spec().Code
+
+		_, ok := r.tools[code]
 		if ok {
-			return fmt.Errorf("%w: %s", ErrAlreadyRegistered, tool.Code())
+			return fmt.Errorf("%w: %s", ErrAlreadyRegistered, code)
 		}
 
-		r.tools[tool.Code()] = tool
+		r.tools[code] = tool
 	}
 
 	return nil
 }
 
-func (r *Registry) MustRegister(tools ...Tool) *Registry {
+func (r *Registry) MustRegister(tools ...*Tool) *Registry {
 	if err := r.Register(tools...); err != nil {
 		panic(err)
 	}
 
 	return r
-}
-
-func runCommand(cmd *exec.Cmd, dir string) (Result, error) {
-	var (
-		stdout bytes.Buffer
-		stderr bytes.Buffer
-	)
-
-	cmd.Stdout = &stdout
-	cmd.Stderr = &stderr
-	cmd.Dir = dir
-
-	err := cmd.Run()
-	result := Result{
-		Stdout: stdout.String(),
-		StdErr: stderr.String(),
-	}
-
-	if err != nil {
-		return result, fmt.Errorf("%w: %w", ErrRunCommand, err)
-	}
-
-	return result, nil
-}
-
-var validate = validator.New()
-
-func parseArgs[T any](raw []byte) (T, error) {
-	var a T
-
-	if err := json.Unmarshal(raw, &a); err != nil {
-		return a, fmt.Errorf("invalid args json: %w", err)
-	}
-
-	if err := validate.Struct(a); err != nil {
-		return a, fmt.Errorf("validate args: %w", err)
-	}
-
-	return a, nil
 }

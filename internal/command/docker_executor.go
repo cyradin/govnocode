@@ -4,10 +4,14 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"io"
 
 	"github.com/moby/moby/api/pkg/stdcopy"
 	"github.com/testcontainers/testcontainers-go"
+	tcexec "github.com/testcontainers/testcontainers-go/exec"
 )
+
+var _ Executor = (*DockerExecutor)(nil)
 
 type Result struct {
 	Stdout string
@@ -24,8 +28,24 @@ func NewDockerExecutor(container testcontainers.Container) *DockerExecutor {
 	}
 }
 
-func (e *DockerExecutor) Run(ctx context.Context, cmd []string) (Result, error) {
-	exitCode, reader, err := e.container.Exec(ctx, cmd)
+func (e *DockerExecutor) Execute(
+	ctx context.Context,
+	cmd []string,
+	stdin io.Reader,
+) (Result, error) {
+	opts := []tcexec.ProcessOption{}
+
+	if stdin != nil {
+		opts = append(opts, tcexec.ProcessOptionFunc(func(p *tcexec.ProcessOptions) {
+			p.Reader = stdin
+		}))
+	}
+
+	exitCode, reader, err := e.container.Exec(
+		ctx,
+		cmd,
+		opts...,
+	)
 	if err != nil {
 		return Result{}, fmt.Errorf("exec in container: %w", err)
 	}

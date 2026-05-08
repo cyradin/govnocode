@@ -14,8 +14,8 @@ type Container struct {
 	cfg     *config.Config
 	logger  *slog.Logger
 
-	printer *agent.Printer
-	codingAgent   *agent.CodingAgent
+	printer     *agent.Printer
+	codingAgent *agent.CodingAgent
 
 	ollamaClient *llm.OllamaClient
 }

@@ -1,6 +1,7 @@
 package container
 
 import (
+	"log/slog"
 	"net/http"
 	"os"
 
@@ -19,14 +20,15 @@ func (c *Container) Printer() *agent.Printer {
 
 func (c *Container) CodingAgent() *agent.CodingAgent {
 	if c.codingAgent == nil {
-		toolRegistry := c.NewToolRegistry().
+		toolRegistry := tools.NewRegistry().
 			MustRegister(tools.Git()...).
-			MustRegister(tools.Filesystem()...)
+			MustRegister(tools.Files()...)
 
 		c.codingAgent = agent.NewCoding(
 			c.Printer(),
 			c.OllamaClient(),
 			toolRegistry,
+			c.logger.With(slog.String("name", "coding_agent")),
 		)
 	}
 

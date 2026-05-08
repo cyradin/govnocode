@@ -4,15 +4,17 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log/slog"
 
+	"github.com/cyradin/govnocode/internal/command"
 	"github.com/cyradin/govnocode/internal/llm"
 	"github.com/cyradin/govnocode/tools"
 	"golang.org/x/sync/errgroup"
 )
 
 type toolProvider interface {
-	Get(code string) (tools.Tool, error)
-	All() []tools.Tool
+	Get(code string) (*tools.Tool, error)
+	All() []*tools.Tool
 }
 
 type llmClient interface {
@@ -29,17 +31,20 @@ type CodingAgent struct {
 	printer   printer
 	llmClient llmClient
 	tools     toolProvider
+	logger    *slog.Logger
 }
 
 func NewCoding(
 	printer printer,
 	llmClient llmClient,
 	toolProvider toolProvider,
+	logger *slog.Logger,
 ) *CodingAgent {
 	return &CodingAgent{
 		printer:   printer,
 		llmClient: llmClient,
 		tools:     toolProvider,
+		logger:    logger,
 	}
 }
 
@@ -49,12 +54,23 @@ func (a *CodingAgent) Start(ctx context.Context, dir string, task string) error 
 		return fmt.Errorf("make system prompt: %w", err)
 	}
 
+	a.logger.InfoContext(ctx, "starting docker container...")
+
+	container, err := command.NewDockerBuilder().BuildFromEmbed(ctx, command.DockerfileGo)
+	if err != nil {
+		return fmt.Errorf("run docker container: %w", err)
+	}
+
+	a.logger.InfoContext(ctx, "docker container started")
+
+	executor := command.NewDockerExecutor(container)
+
 	llmSession := llm.NewSession(a.llmClient, systemPrompt)
 
-	return a.startLoop(ctx, task, llmSession)
+	return a.startLoop(ctx, task, executor, llmSession)
 }
 
-func (a *CodingAgent) startLoop(ctx context.Context, task string, llmSession *llm.Session) error {
+func (a *CodingAgent) startLoop(ctx context.Context, task string, executor *command.DockerExecutor, llmSession *llm.Session) error {
 	var (
 		msg llm.ChatMessage
 		err error
@@ -84,7 +100,7 @@ func (a *CodingAgent) startLoop(ctx context.Context, task string, llmSession *ll
 			continue
 		}
 
-		res, err := tool.Execute(".", toolCall.Args)
+		res, err := tool.Execute(ctx, executor, toolCall.Args)
 		if err != nil {
 			if err := a.writeErrorMessage(ctx, err, llmSession); err != nil {
 				return err
@@ -169,7 +185,7 @@ func (a *CodingAgent) errorPrompt(err error) string {
 	return fmt.Sprintf(codingAgentErrorPrompt, err.Error())
 }
 
-func (a *CodingAgent) toolCallResultPrompt(res tools.Result) string {
+func (a *CodingAgent) toolCallResultPrompt(res command.Result) string {
 	return fmt.Sprintf(ccodingAgentToolCallResultPrompt, res.Stdout)
 }
 

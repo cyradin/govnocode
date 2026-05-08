@@ -9,22 +9,22 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestExecutor_Run_Success(t *testing.T) {
+func TestShellExecutor_Execute_Success(t *testing.T) {
 	t.Parallel()
 
 	dir := t.TempDir()
-	ex := NewExecutor(dir)
+	ex := NewShellExecutor(dir)
 
-	res, err := ex.Run(context.Background(), []string{
+	res, err := ex.Execute(context.Background(), []string{
 		"sh", "-c", "echo hello",
-	})
+	}, nil)
 
 	require.NoError(t, err)
 	require.Equal(t, "hello\n", res.Stdout)
 	require.Equal(t, "", res.Stderr)
 }
 
-func TestExecutor_Run_WorkingDir(t *testing.T) {
+func TestShellExecutor_Execute_WorkingDir(t *testing.T) {
 	t.Parallel()
 
 	dir := t.TempDir()
@@ -33,25 +33,25 @@ func TestExecutor_Run_WorkingDir(t *testing.T) {
 	err := os.WriteFile(filePath, []byte("ok"), 0644)
 	require.NoError(t, err)
 
-	ex := NewExecutor(dir)
+	ex := NewShellExecutor(dir)
 
-	res, err := ex.Run(context.Background(), []string{
+	res, err := ex.Execute(context.Background(), []string{
 		"cat", "test.txt",
-	})
+	}, nil)
 
 	require.NoError(t, err)
 	require.Equal(t, "ok", res.Stdout)
 }
 
-func TestExecutor_Run_Error(t *testing.T) {
+func TestShellExecutor_Execute_Error(t *testing.T) {
 	t.Parallel()
 
 	dir := t.TempDir()
-	ex := NewExecutor(dir)
+	ex := NewShellExecutor(dir)
 
-	_, err := ex.Run(context.Background(), []string{
+	_, err := ex.Execute(context.Background(), []string{
 		"sh", "-c", "exit 1",
-	})
+	}, nil)
 
 	require.Error(t, err)
 	require.ErrorIs(t, err, ErrRunCommand)

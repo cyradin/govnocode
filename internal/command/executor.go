@@ -4,24 +4,31 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"io"
 	"os/exec"
 )
+
+type Executor interface {
+	Execute(ctx context.Context, args []string, stdin io.Reader) (Result, error)
+}
+
+var _ Executor = (*ShellExecutor)(nil)
 
 var (
 	ErrRunCommand = fmt.Errorf("run command")
 )
 
-type Executor struct {
+type ShellExecutor struct {
 	dir string
 }
 
-func NewExecutor(dir string) *Executor {
-	return &Executor{
+func NewShellExecutor(dir string) *ShellExecutor {
+	return &ShellExecutor{
 		dir: dir,
 	}
 }
 
-func (c *Executor) Run(ctx context.Context, args []string) (Result, error) {
+func (c *ShellExecutor) Execute(ctx context.Context, args []string, stdin io.Reader) (Result, error) {
 	var (
 		stdout bytes.Buffer
 		stderr bytes.Buffer
@@ -31,6 +38,7 @@ func (c *Executor) Run(ctx context.Context, args []string) (Result, error) {
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr
 	cmd.Dir = c.dir
+	cmd.Stdin = stdin
 
 	err := cmd.Run()
 	result := Result{
