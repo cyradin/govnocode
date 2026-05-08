@@ -2,11 +2,16 @@ package command
 
 import (
 	"context"
+	"os"
+	"path/filepath"
+
 	"fmt"
 
 	"github.com/moby/moby/api/types/container"
 	"github.com/moby/moby/api/types/mount"
 	"github.com/testcontainers/testcontainers-go"
+
+	_ "embed"
 )
 
 type DockerBuilder struct {
@@ -86,6 +91,30 @@ func (b *DockerBuilder) BuildContext(ctx context.Context, contextDir, dockerfile
 	}
 
 	return tc, nil
+}
+
+func (b *DockerBuilder) BuildFromEmbed(
+	ctx context.Context,
+	name Dockerfile,
+) (testcontainers.Container, error) {
+	content, err := GetDockerfile(name)
+	if err != nil {
+		return nil, fmt.Errorf("read dockerfile: %w", err)
+	}
+
+	dir := filepath.Join(os.TempDir(), "docker-"+string(name))
+
+	if err := os.MkdirAll(dir, 0755); err != nil {
+		return nil, err
+	}
+
+	path := filepath.Join(dir, "Dockerfile")
+
+	if err := os.WriteFile(path, content, 0644); err != nil {
+		return nil, err
+	}
+
+	return b.BuildContext(ctx, dir, "Dockerfile")
 }
 
 func (b *DockerBuilder) applyMounts(req *testcontainers.ContainerRequest) {

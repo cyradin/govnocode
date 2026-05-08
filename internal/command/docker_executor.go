@@ -24,8 +24,8 @@ func NewDockerExecutor(container testcontainers.Container) *DockerExecutor {
 	}
 }
 
-func (c *DockerExecutor) Run(ctx context.Context, cmd []string) (Result, error) {
-	exitCode, reader, err := c.container.Exec(ctx, cmd)
+func (e *DockerExecutor) Run(ctx context.Context, cmd []string) (Result, error) {
+	exitCode, reader, err := e.container.Exec(ctx, cmd)
 	if err != nil {
 		return Result{}, fmt.Errorf("exec in container: %w", err)
 	}
@@ -46,7 +46,7 @@ func (c *DockerExecutor) Run(ctx context.Context, cmd []string) (Result, error) 
 	}
 
 	if exitCode != 0 {
-		return result, fmt.Errorf("exit code %d", exitCode)
+		return result, fmt.Errorf("%w: exit code %d", ErrRunCommand, exitCode)
 	}
 
 	return result, nil
