@@ -60,7 +60,7 @@ func NewDirList() *Tool {
 		files.NewDirList(),
 		Spec{
 			Code:        "dir.list",
-			Description: "List directory contents",
+			Description: "List current directory contents",
 			Args: files.DirListArgs{
 				Path: ".",
 			},
