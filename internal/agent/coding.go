@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"log/slog"
 
-	"github.com/cyradin/govnocode/internal/command"
+	"github.com/cyradin/govnocode/internal/docker"
 	"github.com/cyradin/govnocode/internal/llm"
 	"github.com/cyradin/govnocode/tools"
 	"github.com/cyradin/govnocode/tools/executor"
@@ -57,7 +57,7 @@ func (a *CodingAgent) Start(ctx context.Context, dir string, task string) error 
 
 	a.logger.InfoContext(ctx, "starting docker container...")
 
-	container, err := command.NewDockerBuilder().BuildFromEmbed(ctx, command.DockerfileGo)
+	container, err := docker.NewDockerBuilder().BuildFromEmbed(ctx, docker.DockerfileGo)
 	if err != nil {
 		return fmt.Errorf("run docker container: %w", err)
 	}

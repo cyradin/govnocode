@@ -6,7 +6,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/cyradin/govnocode/internal/command"
+	"github.com/cyradin/govnocode/internal/docker"
 	"github.com/stretchr/testify/suite"
 	"github.com/testcontainers/testcontainers-go"
 )
@@ -49,7 +49,7 @@ func (s *DockerSuite) SetupSuite() {
 	err := os.WriteFile(s.hostFile, []byte("initial"), 0644)
 	s.Require().NoError(err)
 
-	c, err := command.NewDockerBuilder().
+	c, err := docker.NewDockerBuilder().
 		WithWorkdir("/app").
 		WithMount(s.hostFile, "/app/hello.txt").
 		WithCmd([]string{"sleep", "infinity"}).
