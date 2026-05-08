@@ -47,4 +47,4 @@ WORKDIR /app
 RUN git config --global --add safe.directory '*'
 
 ENTRYPOINT ["/usr/bin/tini", "--"]
-CMD ["/bin/bash"]
+CMD ["bash", "-c", "trap : TERM INT; sleep infinity & wait"]
