@@ -104,13 +104,13 @@ func (b *DockerBuilder) BuildFromEmbed(
 
 	dir := filepath.Join(os.TempDir(), "docker-"+string(name))
 
-	if err := os.MkdirAll(dir, 0755); err != nil {
+	if err := os.MkdirAll(dir, 0750); err != nil {
 		return nil, err
 	}
 
 	path := filepath.Join(dir, "Dockerfile")
 
-	if err := os.WriteFile(path, content, 0644); err != nil {
+	if err := os.WriteFile(path, content, 0600); err != nil {
 		return nil, err
 	}
 
