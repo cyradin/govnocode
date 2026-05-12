@@ -41,10 +41,7 @@ func TestWrite_Execute(t *testing.T) {
 
 		path := filepath.Join(tmpDir, "a.txt")
 
-		require.NoError(
-			t,
-			os.WriteFile(path, []byte("old"), 0644),
-		)
+		require.NoError(t, os.WriteFile(path, []byte("old"), 0644))
 
 		_, err := NewWrite().Execute(
 			t.Context(),
@@ -95,7 +92,7 @@ func TestWrite_Execute(t *testing.T) {
 		require.Error(t, err)
 	})
 
-	t.Run("nested directory does not exist", func(t *testing.T) {
+	t.Run("nested directory auto create", func(t *testing.T) {
 		t.Parallel()
 
 		tmpDir := t.TempDir()
@@ -107,9 +104,13 @@ func TestWrite_Execute(t *testing.T) {
 			[]byte(`{"path":"nested/a.txt","content":"hello"}`),
 		)
 
-		require.Error(t, err)
+		require.NoError(t, err)
 		require.NotNil(t, res)
-		require.Contains(t, res.Stderr, "No such file or directory")
+
+		b, err := os.ReadFile(filepath.Join(tmpDir, "nested/a.txt"))
+		require.NoError(t, err)
+
+		require.Equal(t, "hello", string(b))
 	})
 
 	t.Run("write multiline content", func(t *testing.T) {

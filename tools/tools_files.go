@@ -33,7 +33,7 @@ func NewFileWrite() *Tool {
 		files.NewWrite(),
 		Spec{
 			Code:        "file.write",
-			Description: "Write content to file (overwrite if exists)",
+			Description: "Write content to file. Automatically creates parent directories if they do not exist (mkdir -p behavior). Overwrites file if it exists.",
 			Args: files.WriteArgs{
 				Path:    "path/to/file.txt",
 				Content: "hello world",
