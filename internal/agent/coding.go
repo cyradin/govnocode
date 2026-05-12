@@ -1,9 +1,11 @@
 package agent
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
+	"html/template"
 	"log/slog"
 
 	"github.com/cyradin/govnocode/internal/docker"
@@ -71,7 +73,7 @@ func (a *CodingAgent) Start(ctx context.Context, dir string, task string) error 
 	return a.startLoop(ctx, task, executor, llmSession)
 }
 
-func (a *CodingAgent) startLoop(ctx context.Context, task string, executor *executor.Docker, llmSession *llm.Session) error {
+func (a *CodingAgent) startLoop(ctx context.Context, task string, e *executor.Docker, llmSession *llm.Session) error {
 	if err := a.writeMessage(ctx, task, llmSession); err != nil {
 		return err
 	}
@@ -81,7 +83,7 @@ func (a *CodingAgent) startLoop(ctx context.Context, task string, executor *exec
 
 		toolCall, err := NewParser(msg.Content).GetTool()
 		if err != nil {
-			if err := a.writeErrorMessage(ctx, err, llmSession); err != nil {
+			if err := a.writeErrorMessage(ctx, executor.Result{}, err, llmSession); err != nil {
 				return err
 			}
 
@@ -90,34 +92,44 @@ func (a *CodingAgent) startLoop(ctx context.Context, task string, executor *exec
 
 		tool, err := a.tools.Get(toolCall.Tool)
 		if err != nil {
-			if err := a.writeErrorMessage(ctx, err, llmSession); err != nil {
+			if err := a.writeErrorMessage(ctx, executor.Result{}, err, llmSession); err != nil {
 				return err
 			}
 
 			continue
 		}
 
-		res, err := tool.Execute(ctx, executor, toolCall.Args)
+		res, err := tool.Execute(ctx, e, toolCall.Args)
 		if err != nil {
-			if err := a.writeErrorMessage(ctx, err, llmSession); err != nil {
+			if err := a.writeErrorMessage(ctx, res, err, llmSession); err != nil {
 				return err
 			}
 
 			continue
 		}
 
-		if err := a.writeMessage(ctx, a.toolCallResultPrompt(res), llmSession); err != nil {
+		prompt, err := a.toolCallResultPrompt(res)
+		if err != nil {
+			return fmt.Errorf("create error prompt: %w", err)
+		}
+
+		if err := a.writeMessage(ctx, prompt, llmSession); err != nil {
 			return err
 		}
 	}
 }
 
-func (a *CodingAgent) writeErrorMessage(ctx context.Context, err error, llmSession *llm.Session) error {
+func (a *CodingAgent) writeErrorMessage(ctx context.Context, result executor.Result, err error, llmSession *llm.Session) error {
 	if err := a.printer.PrintError(err); err != nil {
 		return fmt.Errorf("print error message: %w", err)
 	}
 
-	if err := a.writeMessage(ctx, a.errorPrompt(err), llmSession); err != nil {
+	prompt, err := a.errorPrompt(result, err)
+	if err != nil {
+		return fmt.Errorf("create error prompt: %w", err)
+	}
+
+	if err := a.writeMessage(ctx, prompt, llmSession); err != nil {
 		return fmt.Errorf("write error message: %w", err)
 	}
 
@@ -177,12 +189,38 @@ func (a *CodingAgent) systemPrompt() (string, error) {
 	return fmt.Sprintf(codingAgentSystemPrompt, string(toolsRaw)), nil
 }
 
-func (a *CodingAgent) errorPrompt(err error) string {
-	return fmt.Sprintf(codingAgentErrorPrompt, err.Error())
+func (a *CodingAgent) errorPrompt(res executor.Result, err error) (string, error) {
+	var buf bytes.Buffer
+
+	data := map[string]string{
+		"status": "ERROR",
+		"error":  err.Error(),
+		"stdout": res.Stdout,
+		"stderr": res.Stderr,
+	}
+
+	if err := codingAgentResultPrompt.Execute(&buf, data); err != nil {
+		return "", fmt.Errorf("execute template: %w", err)
+	}
+
+	return buf.String(), nil
 }
 
-func (a *CodingAgent) toolCallResultPrompt(res executor.Result) string {
-	return fmt.Sprintf(codingAgentToolCallResultPrompt, res.Stdout)
+func (a *CodingAgent) toolCallResultPrompt(res executor.Result) (string, error) {
+	var buf bytes.Buffer
+
+	data := map[string]string{
+		"status": "SUCCESS",
+		"error":  "",
+		"stdout": res.Stdout,
+		"stderr": res.Stderr,
+	}
+
+	if err := codingAgentResultPrompt.Execute(&buf, data); err != nil {
+		return "", fmt.Errorf("execute template: %w", err)
+	}
+
+	return buf.String(), nil
 }
 
 const codingAgentSystemPrompt = `
@@ -223,58 +261,24 @@ If the task is finished → output final answer.
 </tools>
 `
 
-const codingAgentErrorPrompt = `
-Your previous response was invalid:
+var codingAgentResultPrompt = template.Must(
+	template.New("coding_agent_result").Parse(`
+<result>
+	{{- if .status }}
+	<status>{{.status}}</status>
+	{{- end }}
 
-<error>
-%s
-</error>
+	{{- if .error }}
+	<error>{{.error}}</error>
+	{{- end }}
 
-Fix it.
+	{{- if .stdout }}
+	<stdout>{{.stdout}}</stdout>
+	{{- end }}
 
-<rules>
-Rules:
-- Output ONLY valid tool call JSON
-- No explanations
-- No thinking
-- No markdown
-- No extra text before or after JSON
-- Must strictly follow format:
-  {
-    "tool": "<tool_code>",
-    "args": { }
-  }
-</rules>
-Return a corrected response.`
-
-const codingAgentToolCallResultPrompt = `<instruction>
-You are working in an autonomous coding agent loop.
-
-You receive the STDOUT output from a previously executed tool.
-
-Your task:
-- Use this output to continue solving the task
-- Decide the next action (tool call or final answer)
-
-</instruction>
-
-<stdout>
-%s
-</stdout>
-
-<rules>
-- Output ONLY one of:
-  1) tool call JSON
-  2) final answer JSON
-- No explanations
-- No thinking
-- No markdown
-- No extra text
-
-Tool call format:
-{
-  "tool": "<tool_code>",
-  "args": { }
-}
-</rules>
-`
+	{{- if .stderr }}
+	<stderr>{{.stderr}}</stderr>
+	{{- end }}
+</result>
+`),
+)
