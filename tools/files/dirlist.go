@@ -34,7 +34,7 @@ func (d *DirList) Execute(
 
 	return e.Execute(ctx, []string{
 		"ls",
-		"-1",
+		"-1a",
 		path,
 	}, nil)
 }
