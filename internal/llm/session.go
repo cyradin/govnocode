@@ -49,17 +49,17 @@ type Session struct {
 
 func NewSession(
 	client client,
-	systemPrompt string,
 ) *Session {
 	return &Session{
 		client: client,
-		messages: []ChatMessage{
-			{
-				Content: systemPrompt,
-				Role:    RoleSystem,
-			},
-		},
 	}
+}
+
+func (s *Session) SetSystemPrompt(msg string) {
+	s.messages = append(s.messages, ChatMessage{
+		Content: msg,
+		Role:    RoleSystem,
+	})
 }
 
 func (s *Session) WriteMessage(ctx context.Context, text string) <-chan ChatResult {

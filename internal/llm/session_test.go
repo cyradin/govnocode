@@ -2,7 +2,7 @@ package llm
 
 import (
 	"context"
-	"errors"
+	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -22,7 +22,7 @@ func TestSession_WriteMessage_Success(t *testing.T) {
 		},
 	}
 
-	s := NewSession(client, "system prompt")
+	s := NewSession(client)
 
 	out := s.WriteMessage(context.Background(), "hello")
 
@@ -40,14 +40,16 @@ func TestSession_WriteMessage_Success(t *testing.T) {
 func TestSession_WriteMessage_ClientError(t *testing.T) {
 	t.Parallel()
 
+	expectedErr := fmt.Errorf("error")
+
 	client := &mockStreamClient{
 		chunks: []ChatResult{
 			{Resp: ChatResponse{Message: ChatMessage{Content: "Hel"}}},
-			{Err: errors.New("boom")},
+			{Err: expectedErr},
 		},
 	}
 
-	s := NewSession(client, "system prompt")
+	s := NewSession(client)
 
 	out := s.WriteMessage(context.Background(), "hello")
 
@@ -58,8 +60,7 @@ func TestSession_WriteMessage_ClientError(t *testing.T) {
 
 	require.Len(t, results, 2)
 	require.NoError(t, results[0].Err)
-	require.Error(t, results[1].Err)
-	require.Contains(t, results[1].Err.Error(), "boom")
+	require.ErrorIs(t, results[1].Err, expectedErr)
 }
 
 func TestSession_WriteMessage_AppendsFinalMessage(t *testing.T) {
@@ -72,7 +73,8 @@ func TestSession_WriteMessage_AppendsFinalMessage(t *testing.T) {
 		},
 	}
 
-	s := NewSession(client, "system prompt")
+	s := NewSession(client)
+	s.SetSystemPrompt("system")
 
 	out := s.WriteMessage(context.Background(), "hello")
 
