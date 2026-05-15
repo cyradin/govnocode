@@ -1,4 +1,4 @@
-package agent
+package output
 
 import (
 	"io"
@@ -6,7 +6,7 @@ import (
 	"github.com/fatih/color"
 )
 
-type PrinterLLMMessage struct {
+type LLMMessage struct {
 	Content  string
 	Thinking string
 }
@@ -72,7 +72,7 @@ func (p *Printer) PrintError(err error) error {
 	return nil
 }
 
-func (p *Printer) PrintLLMResponse(messages <-chan PrinterLLMMessage) error {
+func (p *Printer) PrintLLMResponse(messages <-chan LLMMessage) error {
 	if err := p.printDelimiter(p.out); err != nil {
 		return err
 	}

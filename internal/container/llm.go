@@ -1,38 +1,19 @@
 package container
 
 import (
-	"log/slog"
 	"net/http"
 	"os"
 
-	"github.com/cyradin/govnocode/internal/agent"
 	"github.com/cyradin/govnocode/internal/llm"
-	"github.com/cyradin/govnocode/tools"
+	"github.com/cyradin/govnocode/internal/output"
 )
 
-func (c *Container) Printer() *agent.Printer {
+func (c *Container) Printer() *output.Printer {
 	if c.printer == nil {
-		c.printer = agent.NewPrinter(os.Stdout)
+		c.printer = output.NewPrinter(os.Stdout)
 	}
 
 	return c.printer
-}
-
-func (c *Container) CodingAgent() *agent.CodingAgent {
-	if c.codingAgent == nil {
-		toolRegistry := tools.NewRegistry().
-			MustRegister(tools.Git()...).
-			MustRegister(tools.Files()...)
-
-		c.codingAgent = agent.NewCoding(
-			c.Printer(),
-			c.OllamaClient(),
-			toolRegistry,
-			c.logger.With(slog.String("name", "coding_agent")),
-		)
-	}
-
-	return c.codingAgent
 }
 
 func (c *Container) OllamaClient() *llm.OllamaClient {

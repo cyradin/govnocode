@@ -1,4 +1,4 @@
-package agent
+package output
 
 import (
 	"errors"
@@ -124,12 +124,12 @@ func TestPrinter_PrintLLMResponse(t *testing.T) {
 
 	tests := []struct {
 		name     string
-		messages []PrinterLLMMessage
+		messages []LLMMessage
 		check    []string
 	}{
 		{
 			name: "content only",
-			messages: []PrinterLLMMessage{
+			messages: []LLMMessage{
 				{Content: "hello"},
 			},
 			check: []string{
@@ -139,7 +139,7 @@ func TestPrinter_PrintLLMResponse(t *testing.T) {
 		},
 		{
 			name: "thinking then content",
-			messages: []PrinterLLMMessage{
+			messages: []LLMMessage{
 				{Thinking: "step1"},
 				{Content: "final"},
 			},
@@ -151,7 +151,7 @@ func TestPrinter_PrintLLMResponse(t *testing.T) {
 		},
 		{
 			name: "mixed stream",
-			messages: []PrinterLLMMessage{
+			messages: []LLMMessage{
 				{Thinking: "t1"},
 				{Thinking: "t2"},
 				{Content: "c1"},
@@ -166,7 +166,7 @@ func TestPrinter_PrintLLMResponse(t *testing.T) {
 		},
 		{
 			name:     "empty messages",
-			messages: []PrinterLLMMessage{},
+			messages: []LLMMessage{},
 			check: []string{
 				"LLM Response:",
 			},
@@ -180,7 +180,7 @@ func TestPrinter_PrintLLMResponse(t *testing.T) {
 			w := &fakeWriter{}
 			p := NewPrinter(w)
 
-			ch := make(chan PrinterLLMMessage, len(tt.messages))
+			ch := make(chan LLMMessage, len(tt.messages))
 
 			go func() {
 				for _, m := range tt.messages {

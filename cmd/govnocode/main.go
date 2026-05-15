@@ -63,7 +63,11 @@ func run(_ *config.Config, container *container.Container) error {
 	}
 
 	errCh := make(chan error, 1)
-	agent := container.CodingAgent()
+
+	agent, err := container.GoAgent().WithWorkdir(absPath).Build(ctx)
+	if err != nil {
+		return fmt.Errorf("init go agent: %w", err)
+	}
 
 	go func() {
 		logger.FromContext(ctx).Info("running code agent", slog.String("project_root", absPath))
@@ -87,7 +91,12 @@ func validateFlags() error {
 	info, err := os.Stat(*projectRootFlag)
 	if err != nil {
 		if os.IsNotExist(err) {
-			return fmt.Errorf("project root does not exist: %s", *projectRootFlag)
+			//nolint:mnd
+			if err := os.MkdirAll(*projectRootFlag, 0750); err != nil {
+				return fmt.Errorf("unable to create directory: %w", err)
+			}
+
+			return nil
 		}
 
 		return fmt.Errorf("cannot access project root: %w", err)
